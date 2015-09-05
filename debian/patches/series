@@ -28,3 +28,6 @@ fix-fprintf.patch
 Bug#747006-inet6_sr.c-buffer-overflows.patch
 Bug#561161-statistics.c-long_numbers.patch
 Bug#508110-inet6.c-initialize_fields.patch
+Bug#443075-ifconfig.c-pointtopoint_spelling.patch
+Bug#500913-man-en_US-route.8-EXAMPLES-Add-single-route-del.patch
+Bug#532879-mii-tool.c-Scan_ethernet_devices_properly.patch

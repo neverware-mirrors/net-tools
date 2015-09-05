@@ -1,3 +1,16 @@
+net-tools (1.60-27) UNRELEASED; urgency=medium
+
+  * Add patch to accept "pointtopoint" as a synonym for "pointopoint".
+    Closes: #443075.
+  * Add patch to add an example for single route deletion in route.8.
+    Closes: #500913.
+  * Remove Luk from Uploaders as per his request. Closes: #748491.
+  * debian/watch: Fix broken watchfile.
+  * Add patch to make mii-tool scan all ethernet devices instead of eth[0-7].
+    Closes: #532879, #319508.
+
+ -- Martín Ferrari <tincho@debian.org>  Tue, 20 May 2014 14:49:31 +0200
+
 net-tools (1.60-26) unstable; urgency=low
 
   * Fix wrong exit codes in netstat.c, closes: #541172.
