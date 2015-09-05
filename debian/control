@@ -1,7 +1,7 @@
 Source: net-tools
 Section: net
 Priority: important
-Build-Depends: debhelper (>> 9), gettext
+Build-Depends: debhelper (>> 9), gettext, libdnet-dev
 Maintainer: net-tools Team <pkg-net-tools-maintainers@lists.alioth.debian.org>
 Uploaders: Martín Ferrari <tincho@debian.org>
 Standards-Version: 3.8.1
