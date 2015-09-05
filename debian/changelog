@@ -10,6 +10,7 @@ net-tools (1.60-27) UNRELEASED; urgency=medium
   * Add patch to make mii-tool scan all ethernet devices instead of eth[0-7].
     Closes: #532879, #319508.
   * debian/control: Add Vcs fields.
+  * Update build system to debhelper 9 and 3.0 source format.
 
  -- Martín Ferrari <tincho@debian.org>  Tue, 20 May 2014 14:49:31 +0200
 
