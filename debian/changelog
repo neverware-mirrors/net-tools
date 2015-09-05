@@ -5,7 +5,8 @@ net-tools (1.60-27) UNRELEASED; urgency=medium
   * Add patch to add an example for single route deletion in route.8.
     Closes: #500913.
   * Remove Luk from Uploaders as per his request. Closes: #748491.
-  * debian/watch: Fix broken watchfile.
+  * debian/watch: Fix broken watchfile, thanks to Martin Bagge for the patch.
+    debian/control, debian/copyright: Fix upstream homepage. Closes: #770070.
   * Add patch to make mii-tool scan all ethernet devices instead of eth[0-7].
     Closes: #532879, #319508.
 

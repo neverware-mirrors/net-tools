@@ -1,4 +1,4 @@
 version=3
 
-http://developer.berlios.de/project/showfiles.php?group_id=4537 \
- .*/net-tools-(\d.*)\.(?:tgz|tbz2|tar\.(?:gz|bz2|xz))
+https://qa.debian.org/watch/sf.php/net-tools/ \
+    net-tools-(\d+\.\d+(?:\.\d+)?)\.(?:tgz|tbz2|txz|tar\.(?:gz|bz2|xz))
