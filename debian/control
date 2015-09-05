@@ -6,6 +6,8 @@ Maintainer: net-tools Team <pkg-net-tools-maintainers@lists.alioth.debian.org>
 Uploaders: Martín Ferrari <tincho@debian.org>
 Standards-Version: 3.8.1
 Homepage: http://sourceforge.net/projects/net-tools/
+Vcs-Git: https://anonscm.debian.org/git/pkg-net-tools/pkg-net-tools.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-net-tools/pkg-net-tools.git
 
 Package: net-tools
 Architecture: any
