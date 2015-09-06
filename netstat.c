@@ -6,7 +6,7 @@
  *              NET-3 Networking Distribution for the LINUX operating
  *              system.
  *
- * Version:     $Id: netstat.c,v 1.43 2001/04/15 14:41:17 pb Exp $
+ * Version:     $Id: netstat.c,v 1.50 2002/12/10 00:56:41 ecki Exp $
  *
  * Authors:     Fred Baumgarten, <dc6iq@insu1.etec.uni-karlsruhe.de>
  *              Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
@@ -216,7 +216,7 @@ FILE *procinfo;
 
 static struct prg_node {
     struct prg_node *next;
-    int inode;
+    unsigned long inode;
     char name[PROGNAME_WIDTH];
 } *prg_hash[PRG_HASH_SIZE];
 
@@ -249,7 +249,7 @@ static char prg_cache_loaded = 0;
 /* NOT working as of glibc-2.0.7: */
 #undef  DIRENT_HAVE_D_TYPE_WORKS
 
-static void prg_cache_add(int inode, char *name)
+static void prg_cache_add(unsigned long inode, char *name)
 {
     unsigned hi = PRG_HASHIT(inode);
     struct prg_node **pnp,*pn;
@@ -272,7 +272,7 @@ static void prg_cache_add(int inode, char *name)
     strcpy(pn->name,name);
 }
 
-static const char *prg_cache_get(int inode)
+static const char *prg_cache_get(unsigned long inode)
 {
     unsigned hi=PRG_HASHIT(inode);
     struct prg_node *pn;
@@ -295,16 +295,18 @@ static void prg_cache_clear(void)
     prg_cache_loaded=0;
 }
 
-static void extract_type_1_socket_inode(const char lname[], long * inode_p) {
+static int extract_type_1_socket_inode(const char lname[], unsigned long * inode_p) {
 
     /* If lname is of the form "socket:[12345]", extract the "12345"
        as *inode_p.  Otherwise, return -1 as *inode_p.
        */
 
-    if (strlen(lname) < PRG_SOCKET_PFXl+3) *inode_p = -1;
-    else if (memcmp(lname, PRG_SOCKET_PFX, PRG_SOCKET_PFXl)) *inode_p = -1;
-    else if (lname[strlen(lname)-1] != ']') *inode_p = -1;
-    else {
+    if (strlen(lname) < PRG_SOCKET_PFXl+3) return(-1);
+    
+    if (memcmp(lname, PRG_SOCKET_PFX, PRG_SOCKET_PFXl)) return(-1);
+    if (lname[strlen(lname)-1] != ']') return(-1);
+
+    {
         char inode_str[strlen(lname + 1)];  /* e.g. "12345" */
         const int inode_str_len = strlen(lname) - PRG_SOCKET_PFXl - 1;
         char *serr;
@@ -313,28 +315,32 @@ static void extract_type_1_socket_inode(const char lname[], long * inode_p) {
         inode_str[inode_str_len] = '\0';
         *inode_p = strtol(inode_str,&serr,0);
         if (!serr || *serr || *inode_p < 0 || *inode_p >= INT_MAX) 
-            *inode_p = -1;
+            return(-1);
     }
+    return(0);
 }
 
 
 
-static void extract_type_2_socket_inode(const char lname[], long * inode_p) {
+static int extract_type_2_socket_inode(const char lname[], unsigned long * inode_p) {
 
     /* If lname is of the form "[0000]:12345", extract the "12345"
        as *inode_p.  Otherwise, return -1 as *inode_p.
        */
 
-    if (strlen(lname) < PRG_SOCKET_PFX2l+1) *inode_p = -1;
-    else if (memcmp(lname, PRG_SOCKET_PFX2, PRG_SOCKET_PFX2l)) *inode_p = -1;
-    else {
+    if (strlen(lname) < PRG_SOCKET_PFX2l+1) return(-1);
+    if (memcmp(lname, PRG_SOCKET_PFX2, PRG_SOCKET_PFX2l)) return(-1);
+
+    {
         char *serr;
 
         *inode_p=strtol(lname + PRG_SOCKET_PFX2l,&serr,0);
         if (!serr || *serr || *inode_p < 0 || *inode_p >= INT_MAX) 
-            *inode_p = -1;
+            return(-1);
     }
+    return(0);
 }
+
 
 
 
@@ -343,7 +349,7 @@ static void prg_cache_load(void)
     char line[LINE_MAX],eacces=0;
     int procfdlen,fd,cmdllen,lnamelen;
     char lname[30],cmdlbuf[512],finbuf[PROGNAME_WIDTH];
-    long inode;
+    unsigned long inode;
     const char *cs,*cmdlp;
     DIR *dirproc=NULL,*dirfd=NULL;
     struct dirent *direproc,*direfd;
@@ -386,11 +392,9 @@ static void prg_cache_load(void)
 	    lnamelen=readlink(line,lname,sizeof(lname)-1);
             lname[lnamelen] = '\0';  /*make it a null-terminated string*/
 
-            extract_type_1_socket_inode(lname, &inode);
-
-            if (inode < 0) extract_type_2_socket_inode(lname, &inode);
-
-            if (inode < 0) continue;
+            if (extract_type_1_socket_inode(lname, &inode) < 0)
+              if (extract_type_2_socket_inode(lname, &inode) < 0)
+                continue;
 
 	    if (!cmdlp) {
 		if (procfdlen - PATH_FD_SUFFl + PATH_CMDLINEl >= 
@@ -530,7 +534,7 @@ static void finish_this_one(int uid, unsigned long inode, const char *timers)
 	    printf("%-10s ", pw->pw_name);
 	else
 	    printf("%-10d ", uid);
-	printf("%-10ld ",inode);
+	printf("%-10lu ",inode);
     }
     if (flag_prg)
 	printf("%-" PROGNAME_WIDTHs "s",prg_cache_get(inode));
@@ -705,6 +709,7 @@ static void tcp_do_one(int lnr, const char *line)
     unsigned long rxq, txq, time_len, retr, inode;
     int num, local_port, rem_port, d, state, uid, timer_run, timeout;
     char rem_addr[128], local_addr[128], timers[64], buffer[1024], more[512];
+    char *protname;
     struct aftype *ap;
 #if HAVE_AFINET6
     struct sockaddr_in6 localaddr, remaddr;
@@ -719,12 +724,13 @@ static void tcp_do_one(int lnr, const char *line)
 	return;
 
     num = sscanf(line,
-    "%d: %64[0-9A-Fa-f]:%X %64[0-9A-Fa-f]:%X %X %lX:%lX %X:%lX %lX %d %d %ld %512s\n",
+    "%d: %64[0-9A-Fa-f]:%X %64[0-9A-Fa-f]:%X %X %lX:%lX %X:%lX %lX %d %d %lu %512s\n",
 		 &d, local_addr, &local_port, rem_addr, &rem_port, &state,
 		 &txq, &rxq, &timer_run, &time_len, &retr, &uid, &timeout, &inode, more);
 
     if (strlen(local_addr) > 8) {
 #if HAVE_AFINET6
+	protname = "tcp6";
 	/* Demangle what the kernel gives us */
 	sscanf(local_addr, "%08X%08X%08X%08X",
 	       &in6.s6_addr32[0], &in6.s6_addr32[1],
@@ -740,6 +746,7 @@ static void tcp_do_one(int lnr, const char *line)
 	remaddr.sin6_family = AF_INET6;
 #endif
     } else {
+	protname = "tcp";
 	sscanf(local_addr, "%X",
 	       &((struct sockaddr_in *) &localaddr)->sin_addr.s_addr);
 	sscanf(rem_addr, "%X",
@@ -813,8 +820,8 @@ static void tcp_do_one(int lnr, const char *line)
 			 timer_run, (double) time_len / HZ, retr, timeout);
 		break;
 	    }
-	printf("tcp   %6ld %6ld %-23s %-23s %-12s",
-	       rxq, txq, local_addr, rem_addr, _(tcp_state[state]));
+	printf("%-4s  %6ld %6ld %-*s %-*s %-11s",
+	       protname, rxq, txq, max(23,strlen(local_addr)), local_addr, max(23,strlen(rem_addr)), rem_addr, _(tcp_state[state]));
 
 	finish_this_one(uid,inode,timers);
     }
@@ -831,6 +838,7 @@ static void udp_do_one(int lnr, const char *line)
     char buffer[8192], local_addr[64], rem_addr[64];
     char *udp_state, timers[64], more[512];
     int num, local_port, rem_port, d, state, timer_run, uid, timeout;
+    char *protname;
 #if HAVE_AFINET6
     struct sockaddr_in6 localaddr, remaddr;
     char addr6[INET6_ADDRSTRLEN];
@@ -847,13 +855,14 @@ static void udp_do_one(int lnr, const char *line)
 
     more[0] = '\0';
     num = sscanf(line,
-		 "%d: %64[0-9A-Fa-f]:%X %64[0-9A-Fa-f]:%X %X %lX:%lX %X:%lX %lX %d %d %ld %512s\n",
+		 "%d: %64[0-9A-Fa-f]:%X %64[0-9A-Fa-f]:%X %X %lX:%lX %X:%lX %lX %d %d %lu %512s\n",
 		 &d, local_addr, &local_port,
 		 rem_addr, &rem_port, &state,
 	  &txq, &rxq, &timer_run, &time_len, &retr, &uid, &timeout, &inode, more);
 
     if (strlen(local_addr) > 8) {
 #if HAVE_AFINET6
+	protname="udp6";
 	sscanf(local_addr, "%08X%08X%08X%08X",
 	       &in6.s6_addr32[0], &in6.s6_addr32[1],
 	       &in6.s6_addr32[2], &in6.s6_addr32[3]);
@@ -868,6 +877,7 @@ static void udp_do_one(int lnr, const char *line)
 	remaddr.sin6_family = AF_INET6;
 #endif
     } else {
+        protname="udp";
 	sscanf(local_addr, "%X",
 	       &((struct sockaddr_in *) &localaddr)->sin_addr.s_addr);
 	sscanf(rem_addr, "%X",
@@ -953,8 +963,8 @@ static void udp_do_one(int lnr, const char *line)
 			 retr, timeout);
 		break;
 	    }
-	printf("udp   %6ld %6ld %-23s %-23s %-12s",
-	       rxq, txq, local_addr, rem_addr, udp_state);
+	printf("%-4s  %6ld %6ld %-23s %-23s %-11s",
+	       protname, rxq, txq, local_addr, rem_addr, udp_state);
 
 	finish_this_one(uid,inode,timers);
     }
@@ -971,6 +981,7 @@ static void raw_do_one(int lnr, const char *line)
     char buffer[8192], local_addr[64], rem_addr[64];
     char timers[64], more[512];
     int num, local_port, rem_port, d, state, timer_run, uid, timeout;
+    char *protname;
 #if HAVE_AFINET6
     struct sockaddr_in6 localaddr, remaddr;
     char addr6[INET6_ADDRSTRLEN];
@@ -987,12 +998,13 @@ static void raw_do_one(int lnr, const char *line)
 
     more[0] = '\0';
     num = sscanf(line,
-		 "%d: %64[0-9A-Fa-f]:%X %64[0-9A-Fa-f]:%X %X %lX:%lX %X:%lX %lX %d %d %ld %512s\n",
+		 "%d: %64[0-9A-Fa-f]:%X %64[0-9A-Fa-f]:%X %X %lX:%lX %X:%lX %lX %d %d %lu %512s\n",
 		 &d, local_addr, &local_port, rem_addr, &rem_port, &state,
 	  &txq, &rxq, &timer_run, &time_len, &retr, &uid, &timeout, &inode, more);
 
     if (strlen(local_addr) > 8) {
 #if HAVE_AFINET6
+	protname = "raw6";
 	sscanf(local_addr, "%08X%08X%08X%08X",
 	       &in6.s6_addr32[0], &in6.s6_addr32[1],
            &in6.s6_addr32[2], &in6.s6_addr32[3]);
@@ -1007,6 +1019,7 @@ static void raw_do_one(int lnr, const char *line)
 	remaddr.sin6_family = AF_INET6;
 #endif
     } else {
+        protname = "raw";
 	sscanf(local_addr, "%X",
 	       &((struct sockaddr_in *) &localaddr)->sin_addr.s_addr);
 	sscanf(rem_addr, "%X",
@@ -1074,8 +1087,8 @@ static void raw_do_one(int lnr, const char *line)
 			 retr, timeout);
 		break;
 	    }
-	printf("raw   %6ld %6ld %-23s %-23s %-12d",
-	       rxq, txq, local_addr, rem_addr, state);
+	printf("%-4s  %6ld %6ld %-23s %-23s %-11d",
+	       protname, rxq, txq, local_addr, rem_addr, state);
 
 	finish_this_one(uid,inode,timers);
     }
@@ -1099,9 +1112,9 @@ static void unix_do_one(int nr, const char *line)
     static int has = 0;
     char path[MAXPATHLEN], ss_flags[32];
     char *ss_proto, *ss_state, *ss_type;
-    int num, state, type, inode;
+    int num, state, type;
     void *d;
-    unsigned long refcnt, proto, flags;
+    unsigned long refcnt, proto, flags, inode;
 
     if (nr == 0) {
 	if (strstr(line, "Inode"))
@@ -1109,14 +1122,14 @@ static void unix_do_one(int nr, const char *line)
 	return;
     }
     path[0] = '\0';
-    num = sscanf(line, "%p: %lX %lX %lX %X %X %d %s",
+    num = sscanf(line, "%p: %lX %lX %lX %X %X %lu %s",
 		 &d, &refcnt, &proto, &flags, &type, &state, &inode, path);
     if (num < 6) {
 	fprintf(stderr, _("warning, got bogus unix line.\n"));
 	return;
     }
     if (!(has & HAS_INODE))
-	snprintf(path,sizeof(path),"%d",inode);
+	snprintf(path,sizeof(path),"%lu",inode);
 
     if (!flag_all) {
     	if ((state == SS_UNCONNECTED) && (flags & SO_ACCEPTCON)) {
@@ -1208,9 +1221,9 @@ static void unix_do_one(int nr, const char *line)
     printf("%-5s %-6ld %-11s %-10s %-13s ",
 	   ss_proto, refcnt, ss_flags, ss_type, ss_state);
     if (has & HAS_INODE)
-	printf("%-6d ",inode);
+	printf("%-8lu ",inode);
     else
-	printf("-      ");
+	printf("-        ");
     if (flag_prg)
 	printf("%-" PROGNAME_WIDTHs "s",(has & HAS_INODE?prg_cache_get(inode):"-"));
     puts(path);
@@ -1449,7 +1462,7 @@ static int iface_info(void)
     }
     if (flag_exp < 2) {
 	ife_short = 1;
-	printf(_("Iface   MTU Met   RX-OK RX-ERR RX-DRP RX-OVR   TX-OK TX-ERR TX-DRP TX-OVR Flg\n"));
+	printf(_("Iface   MTU Met   RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg\n"));
     }
 
     if (for_all_interfaces(do_if_print, &flag_all) < 0) {
@@ -1457,7 +1470,7 @@ static int iface_info(void)
 	exit(1);
     }
     if (flag_cnt)
-	free_interface_list();
+	if_cache_free();
     else {
 	close(skfd);
 	skfd = -1;
@@ -1503,7 +1516,7 @@ static void usage(void)
     fprintf(stderr, _("        -C, --cache              display routing cache instead of FIB\n\n"));
 
     fprintf(stderr, _("  <Socket>={-t|--tcp} {-u|--udp} {-w|--raw} {-x|--unix} --ax25 --ipx --netrom\n"));
-    fprintf(stderr, _("  <AF>=Use '-A <af>' or '--<af>'; default: %s\n"), DFLT_AF);
+    fprintf(stderr, _("  <AF>=Use '-6|-4' or '-A <af>' or '--<af>'; default: %s\n"), DFLT_AF);
     fprintf(stderr, _("  List of possible address families (which support routing):\n"));
     print_aflist(1); /* 1 = routeable */
     exit(E_USAGE);
@@ -1514,7 +1527,7 @@ int main
  (int argc, char *argv[]) {
     int i;
     int lop;
-    struct option longopts[] =
+    static struct option longopts[] =
     {
 	AFTRANS_OPTS,
 	{"version", 0, 0, 'V'},
@@ -1556,7 +1569,7 @@ int main
     getroute_init();		/* Set up AF routing support */
 
     afname[0] = '\0';
-    while ((i = getopt_long(argc, argv, "MCFA:acdegphinNorstuVv?wxl", longopts, &lop)) != EOF)
+    while ((i = getopt_long(argc, argv, "MCFA:acdegphinNorstuVv?wxl64", longopts, &lop)) != EOF)
 	switch (i) {
 	case -1:
 	    break;
@@ -1623,6 +1636,14 @@ int main
 	    break;
 	case 'o':
 	    flag_opt++;
+	    break;
+	case '6':
+	    if (aftrans_opt("inet6"))
+		exit(1);
+	    break;
+	case '4':
+	    if (aftrans_opt("inet"))
+		exit(1);
 	    break;
 	case 'V':
 	    version();

@@ -1,6 +1,6 @@
 /*
  * Copyright 1997,1999,2000 Andi Kleen. Subject to the GPL. 
- * $Id: statistics.c,v 1.14 2001/02/02 18:01:23 pb Exp $
+ * $Id: statistics.c,v 1.17 2002/04/28 15:41:01 ak Exp $
  * 19980630 - i18n - Arnaldo Carvalho de Melo <acme@conectiva.com.br> 
  * 19981113 - i18n fixes - Arnaldo Carvalho de Melo <acme@conectiva.com.br> 
  * 19990101 - added net/netstat, -t, -u, -w supprt - Bernd Eckenfels 
@@ -175,16 +175,54 @@ struct entry Tcpexttab[] =
     { "ListenDrops", N_("%u SYNs to LISTEN sockets ignored"), opt_number },
     { "TCPPrequeued", N_("%u packets directly queued to recvmsg prequeue."), 
       opt_number },
-    { "TCPDirectCopyFromBacklog", N_("%u packets directly received"
+    { "TCPDirectCopyFromBacklog", N_("%u of bytes directly received"
 				     " from backlog"), opt_number },
-    { "TCPDirectCopyFromPrequeue", N_("%u packets directly received"
+    { "TCPDirectCopyFromPrequeue", N_("%u of bytes directly received"
 				      " from prequeue"), opt_number },
     { "TCPPrequeueDropped", N_("%u packets dropped from prequeue"), opt_number },
-    { "TCPHPHits", N_("%u packets header predicted"), number },
+    { "TCPHPHits", N_("%u packet headers predicted"), number },
     { "TCPHPHitsToUser", N_("%u packets header predicted and "
 			    "directly queued to user"), opt_number },
     { "SockMallocOOM", N_("Ran %u times out of system memory during " 
 			  "packet sending"), opt_number }, 
+    { "TCPPureAcks", N_("%u acknowledgments not containing data received"), opt_number },
+    { "TCPHPAcks", N_("%u predicted acknowledgments"), opt_number },
+    { "TCPRenoRecovery", N_("%u times recovered from packet loss due to fast retransmit"), opt_number },
+    { "TCPSackRecovery", N_("%u times recovered from packet loss due to SACK data"), opt_number },
+    { "TCPSACKReneging", N_("%u bad SACKs received"), opt_number },
+    { "TCPFACKReorder", N_("Detected reordering %u times using FACK"), opt_number },
+    { "TCPSACKReorder", N_("Detected reordering %u times using SACK"), opt_number },
+    { "TCPTSReorder", N_("Detected reordering %u times using time stamp"), opt_number },
+    { "TCPRenoReorder", N_("Detected reordering %u times using reno fast retransmit"), opt_number },
+    { "TCPFullUndo", N_("%u congestion windows fully recovered"), opt_number }, 
+    { "TCPPartialUndo", N_("%u congestion windows partially recovered using Hoe heuristic"), opt_number },
+    { "TCPDSackUndo", N_("%u congestion window recovered using DSACK"), opt_number },
+    { "TCPLossUndo", N_("%u congestion windows recovered after partial ack"), opt_number },
+    { "TCPLostRetransmits", N_("%u retransmits lost"), opt_number },
+    { "TCPRenoFailures",  N_("%u timeouts after reno fast retransmit"), opt_number },
+    { "TCPSackFailures",  N_("%u timeouts after SACK recovery"), opt_number },
+    { "TCPLossFailures",  N_("%u timeouts in loss state"), opt_number },
+    { "TCPFastRetrans", N_("%u fast retransmits"), opt_number },
+    { "TCPForwardRetrans", N_("%u forward retransmits"), opt_number }, 
+    { "TCPSlowStartRetrans", N_("%u retransmits in slow start"), opt_number },
+    { "TCPTimeouts", N_("%u other TCP timeouts"), opt_number },
+    { "TCPRenoRecoveryFailed", N_("%u reno fast retransmits failed"), opt_number },
+    { "TCPSackRecoveryFail", N_("%u sack retransmits failed"), opt_number },
+    { "TCPSchedulerFailed", N_("%u times receiver scheduled too late for direct processing"), opt_number },
+    { "TCPRcvCollapsed", N_("%u packets collapsed in receive queue due to low socket buffer"), opt_number },
+    { "TCPDSACKOldSent", N_("%u DSACKs sent for old packets"), opt_number },
+    { "TCPDSACKOfoSent", N_("%u DSACKs sent for out of order packets"), opt_number },
+    { "TCPDSACKRecv", N_("%u DSACKs received"), opt_number },
+    { "TCPDSACKOfoRecv", N_("%u DSACKs for out of order packets received"), opt_number },
+    { "TCPAbortOnSyn", N_("%u connections reset due to unexpected SYN"), opt_number },
+    { "TCPAbortOnData", N_("%u connections reset due to unexpected data"), opt_number },
+    { "TCPAbortOnClose", N_("%u connections reset due to early user close"), opt_number },
+    { "TCPAbortOnMemory", N_("%u connections aborted due to memory pressure"), opt_number },
+    { "TCPAbortOnTimeout", N_("%u connections aborted due to timeout"), opt_number },
+    { "TCPAbortOnLinger", N_("%u connections aborted after user close in linger timeout"), opt_number },
+    { "TCPAbortFailed", N_("%u times unabled to send RST due to no memory"), opt_number }, 
+    { "TCPMemoryPressures", N_("TCP ran low on memory %u times"), opt_number }, 
+    { "TCPLoss", N_("%u TCP data loss events") },
 };
 
 struct tabtab {
@@ -222,7 +260,8 @@ void printval(struct tabtab *tab, char *title, int val)
 	    ent = bsearch(&key, tab->tab, tab->size / sizeof(struct entry),
 			  sizeof(struct entry), cmpentries);
     if (!ent) {			/* try our best */
-	printf("%*s%s: %d\n", states[state].indent, "", title, val);
+	if (val) 
+		printf("%*s%s: %d\n", states[state].indent, "", title, val);
 	return;
     }
     type = ent->type;

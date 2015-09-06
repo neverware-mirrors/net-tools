@@ -7,7 +7,7 @@
    8/2000  Andi Kleen make the list operations a bit more efficient.
    People are crazy enough to use thousands of aliases now.
 
-   $Id: interface.c,v 1.14 2001/02/10 19:31:15 pb Exp $
+   $Id: interface.c,v 1.27 2002/12/10 00:56:41 ecki Exp $
  */
 
 #include "config.h"
@@ -87,13 +87,18 @@ int procnetdev_vsn = 1;
 
 int ife_short;
 
+int if_list_all = 0;	/* do we have requested the complete proc list, yet? */
+
 static struct interface *int_list, *int_last;
 
 static int if_readlist_proc(char *);
 
-static struct interface *add_interface(char *name)
+static struct interface *if_cache_add(char *name)
 {
     struct interface *ife, **nextp, *new;
+
+    if (!int_list)
+    	int_last = NULL;
 
     for (ife = int_last; ife; ife = ife->prev) {
 	    int n = nstrcmp(ife->name, name); 
@@ -117,19 +122,22 @@ static struct interface *add_interface(char *name)
 
 struct interface *lookup_interface(char *name)
 {
-    struct interface *ife = NULL;
+   /* if we have read all, use it */
+   if (if_list_all)
+   	return if_cache_add(name);
 
-    if (if_readlist_proc(name) < 0) 
-	    return NULL; 
-    ife = add_interface(name); 
-    return ife;
+   /* otherwise we read a limited list */
+   if (if_readlist_proc(name) < 0)
+   	return NULL;
+ 
+   return if_cache_add(name);
 }
 
 int for_all_interfaces(int (*doit) (struct interface *, void *), void *cookie)
 {
     struct interface *ife;
 
-    if (!int_list && (if_readlist() < 0))
+    if (!if_list_all && (if_readlist() < 0))
 	return -1;
     for (ife = int_list; ife; ife = ife->next) {
 	int err = doit(ife, cookie);
@@ -139,13 +147,15 @@ int for_all_interfaces(int (*doit) (struct interface *, void *), void *cookie)
     return 0;
 }
 
-int free_interface_list(void)
+int if_cache_free(void)
 {
     struct interface *ife;
     while ((ife = int_list) != NULL) {
 	int_list = ife->next;
 	free(ife);
     }
+    int_last = NULL;
+    if_list_all = 0;
     return 0;
 }
 
@@ -180,7 +190,7 @@ static int if_readconf(void)
 	}
 	if (ifc.ifc_len == sizeof(struct ifreq) * numreqs) {
 	    /* assume it overflowed and try again */
-	    numreqs += 10;
+	    numreqs *= 2;
 	    continue;
 	}
 	break;
@@ -188,7 +198,7 @@ static int if_readconf(void)
 
     ifr = ifc.ifc_req;
     for (n = 0; n < ifc.ifc_len; n += sizeof(struct ifreq)) {
-	add_interface(ifr->ifr_name);
+	if_cache_add(ifr->ifr_name);
 	ifr++;
     }
     err = 0;
@@ -198,7 +208,7 @@ out:
     return err;
 }
 
-static char *get_name(char *name, char *p)
+char *get_name(char *name, char *p)
 {
     while (isspace(*p))
 	p++;
@@ -206,16 +216,19 @@ static char *get_name(char *name, char *p)
 	if (isspace(*p))
 	    break;
 	if (*p == ':') {	/* could be an alias */
-	    char *dot = p, *dotname = name;
-	    *name++ = *p++;
-	    while (isdigit(*p))
-		*name++ = *p++;
-	    if (*p != ':') {	/* it wasn't, backup */
-		p = dot;
-		name = dotname;
+		char *dot = p++;
+ 		while (*p && isdigit(*p)) p++;
+		if (*p == ':') {
+			/* Yes it is, backup and copy it. */
+			p = dot;
+			*name++ = *p++;
+			while (*p && isdigit(*p)) {
+				*name++ = *p++;
+			}
+		} else {
+			/* No, it isn't */
+			p = dot;
 	    }
-	    if (*p == '\0')
-		return NULL;
 	    p++;
 	    break;
 	}
@@ -225,7 +238,7 @@ static char *get_name(char *name, char *p)
     return p;
 }
 
-static int procnetdev_version(char *buf)
+int procnetdev_version(char *buf)
 {
     if (strstr(buf, "compressed"))
 	return 3;
@@ -234,12 +247,12 @@ static int procnetdev_version(char *buf)
     return 1;
 }
 
-static int get_dev_fields(char *bp, struct interface *ife)
+int get_dev_fields(char *bp, struct interface *ife)
 {
     switch (procnetdev_vsn) {
     case 3:
 	sscanf(bp,
-	"%llu %llu %lu %lu %lu %lu %lu %lu %llu %llu %lu %lu %lu %lu %lu %lu",
+	"%Lu %Lu %lu %lu %lu %lu %lu %lu %Lu %Lu %lu %lu %lu %lu %lu %lu",
 	       &ife->stats.rx_bytes,
 	       &ife->stats.rx_packets,
 	       &ife->stats.rx_errors,
@@ -259,7 +272,7 @@ static int get_dev_fields(char *bp, struct interface *ife)
 	       &ife->stats.tx_compressed);
 	break;
     case 2:
-	sscanf(bp, "%llu %llu %lu %lu %lu %lu %llu %llu %lu %lu %lu %lu %lu",
+	sscanf(bp, "%Lu %Lu %lu %lu %lu %lu %Lu %Lu %lu %lu %lu %lu %lu",
 	       &ife->stats.rx_bytes,
 	       &ife->stats.rx_packets,
 	       &ife->stats.rx_errors,
@@ -277,7 +290,7 @@ static int get_dev_fields(char *bp, struct interface *ife)
 	ife->stats.rx_multicast = 0;
 	break;
     case 1:
-	sscanf(bp, "%llu %lu %lu %lu %lu %llu %lu %lu %lu %lu %lu",
+	sscanf(bp, "%Lu %lu %lu %lu %lu %Lu %lu %lu %lu %lu %lu",
 	       &ife->stats.rx_packets,
 	       &ife->stats.rx_errors,
 	       &ife->stats.rx_dropped,
@@ -300,22 +313,16 @@ static int get_dev_fields(char *bp, struct interface *ife)
 
 static int if_readlist_proc(char *target)
 {
-    static int proc_read; 
     FILE *fh;
     char buf[512];
     struct interface *ife;
     int err;
 
-    if (proc_read) 
-	    return 0; 
-    if (!target) 
-	    proc_read = 1;
-
     fh = fopen(_PATH_PROCNET_DEV, "r");
     if (!fh) {
 		fprintf(stderr, _("Warning: cannot open %s (%s). Limited output.\n"),
 			_PATH_PROCNET_DEV, strerror(errno)); 
-		return if_readconf();
+		return -2;
 	}	
     fgets(buf, sizeof buf, fh);	/* eat line */
     fgets(buf, sizeof buf, fh);
@@ -350,7 +357,7 @@ static int if_readlist_proc(char *target)
     while (fgets(buf, sizeof buf, fh)) {
 	char *s, name[IFNAMSIZ];
 	s = get_name(name, buf);    
-	ife = add_interface(name);
+	ife = if_cache_add(name);
 	get_dev_fields(s, ife);
 	ife->statistics_valid = 1;
 	if (target && !strcmp(target,name))
@@ -359,7 +366,6 @@ static int if_readlist_proc(char *target)
     if (ferror(fh)) {
 	perror(_PATH_PROCNET_DEV);
 	err = -1;
-	proc_read = 0; 
     }
 
 #if 0
@@ -371,9 +377,17 @@ static int if_readlist_proc(char *target)
 
 int if_readlist(void) 
 { 
+    /* caller will/should check not to call this too often 
+     *   (i.e. only if if_list_all == 0 
+     */
     int err = if_readlist_proc(NULL); 
-    if (!err)
-	    err = if_readconf();
+
+    if (err)
+    	err = if_readconf();
+	    
+    if(!err)
+    	if_list_all = 1;
+
     return err;
 } 
 
@@ -580,10 +594,10 @@ int do_if_print(struct interface *ife, void *cookie)
 void ife_print_short(struct interface *ptr)
 {
     printf("%-5.5s ", ptr->name);
-    printf("%5d %3d", ptr->mtu, ptr->metric);
+    printf("%5d %-2d ", ptr->mtu, ptr->metric);
     /* If needed, display the interface statistics. */
     if (ptr->statistics_valid) {
-	printf("%8llu %6lu %6lu %6lu",
+	printf("%8llu %6lu %6lu %-6lu ",
 	       ptr->stats.rx_packets, ptr->stats.rx_errors,
 	       ptr->stats.rx_dropped, ptr->stats.rx_fifo_errors);
 	printf("%8llu %6lu %6lu %6lu ",
@@ -636,8 +650,8 @@ void ife_print_long(struct interface *ptr)
     int hf;
     int can_compress = 0;
     unsigned long long rx, tx, short_rx, short_tx;
-    char Rext[5]="b";
-    char Text[5]="b";
+    const char *Rext = "b";
+    const char *Text = "b";
 
 #if HAVE_AFIPX
     static struct aftype *ipxtype = NULL;
@@ -843,10 +857,38 @@ void ife_print_long(struct interface *ptr)
 	tx = ptr->stats.tx_bytes;
 	short_rx = rx * 10;  
 	short_tx = tx * 10;
-	if (rx > 1048576) { short_rx /= 1048576;  strcpy(Rext, "Mb"); }
-	else if (rx > 1024) { short_rx /= 1024;  strcpy(Rext, "Kb"); }
-	if (tx > 1048576) { short_tx /= 1048576;  strcpy(Text, "Mb"); }
-	else if (tx > 1024) { short_tx /= 1024;  strcpy(Text, "Kb"); }
+	if (rx > 1125899906842624) {
+	    short_rx /= 1125899906842624;
+	    Rext = "PiB";
+	} else if (rx > 1099511627776) {
+	    short_rx /= 1099511627776;
+	    Rext = "TiB";
+	} else if (rx > 1073741824) {
+	    short_rx /= 1073741824;
+	    Rext = "GiB";
+	} else if (rx > 1048576) {
+	    short_rx /= 1048576;
+	    Rext = "MiB";
+	} else if (rx > 1024) {
+	    short_rx /= 1024;
+	    Rext = "KiB";
+	}
+	if (tx > 1125899906842624) {
+	    short_tx /= 1125899906842624;
+	    Text = "PiB";
+	} else 	if (tx > 1099511627776) {
+	    short_tx /= 1099511627776;
+	    Text = "TiB";
+	} else if (tx > 1073741824) {
+	    short_tx /= 1073741824;
+	    Text = "GiB";
+	} else if (tx > 1048576) {
+	    short_tx /= 1048576;
+	    Text = "MiB";
+	} else if (tx > 1024) {
+	    short_tx /= 1024;
+	    Text = "KiB";
+	}
 
 	printf("          ");
 	printf(_("TX packets:%llu errors:%lu dropped:%lu overruns:%lu carrier:%lu\n"),
@@ -867,7 +909,7 @@ void ife_print_long(struct interface *ptr)
     }
 
     if ((ptr->map.irq || ptr->map.mem_start || ptr->map.dma ||
-	 ptr->map.base_addr)) {
+	 ptr->map.base_addr >= 0x100)) {
 	printf("          ");
 	if (ptr->map.irq)
 	    printf(_("Interrupt:%d "), ptr->map.irq);
