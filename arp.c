@@ -8,7 +8,7 @@
  *              NET-3 Networking Distribution for the LINUX operating
  *              system.
  *
- * Version:     $Id: arp.c,v 1.25 2005/12/04 02:57:15 ecki Exp $
+ * Version:     $Id: arp.c,v 1.27 2009/09/06 22:50:11 vapier Exp $
  *
  * Maintainer:  Bernd 'eckes' Eckenfels, <net-tools@lina.inka.de>
  *
@@ -20,14 +20,14 @@
  *              Andrew Tridgell :       proxy arp netmasks
  *              Bernd Eckenfels :       -n option
  *              Bernd Eckenfels :       Use only /proc for display
- *       {1.60} Bernd Eckenfels :       new arpcode (-i) for 1.3.42 but works 
+ *       {1.60} Bernd Eckenfels :       new arpcode (-i) for 1.3.42 but works
  *                                      with 1.2.x, too
  *       {1.61} Bernd Eckenfels :       more verbose messages
  *       {1.62} Bernd Eckenfels :       check -t for hw adresses and try to
  *                                      explain EINVAL (jeff)
  *970125 {1.63} Bernd Eckenfels :       -a print hardwarename instead of tiltle
  *970201 {1.64} Bernd Eckenfels :       net-features.h support
- *970203 {1.65} Bernd Eckenfels :       "#define" in "#if", 
+ *970203 {1.65} Bernd Eckenfels :       "#define" in "#if",
  *                                      -H|-A additional to -t|-p
  *970214 {1.66} Bernd Eckenfels :       Fix optarg required for -H and -A
  *970412 {1.67} Bernd Eckenfels :       device=""; is default
@@ -35,7 +35,7 @@
  *970517 {1.69} Bernd Eckenfels :       usage() fixed
  *970622 {1.70} Bernd Eckenfels :       arp -d priv
  *970106 {1.80} Bernd Eckenfels :       new syntax without -D and with "dev <If>",
- *                                      ATF_MAGIC, ATF_DONTPUB support. 
+ *                                      ATF_MAGIC, ATF_DONTPUB support.
  *                                      Typo fix (Debian Bug#5728 Giuliano Procida)
  *970803 {1.81} Bernd Eckenfels :       removed junk comment line 1
  *970925 {1.82} Bernd Eckenfels :       include fix for libc6
@@ -80,7 +80,7 @@
 #define FEATURE_ARP
 #include "lib/net-features.h"
 
-char *Release = RELEASE, *Version = "arp 1.88 (2001-04-04)";
+static char *Release = RELEASE;
 
 int opt_n = 0;			/* do not resolve addresses     */
 int opt_N = 0;			/* use symbolic names           */
@@ -88,8 +88,8 @@ int opt_v = 0;			/* debugging output flag        */
 int opt_D = 0;			/* HW-address is devicename     */
 int opt_e = 0;			/* 0=BSD output, 1=new linux    */
 int opt_a = 0;			/* all entries, substring match */
-struct aftype *ap;		/* current address family       */
-struct hwtype *hw;		/* current hardware type        */
+const struct aftype *ap;/* current address family       */
+const struct hwtype *hw;/* current hardware type        */
 int sockfd = 0;			/* active socket descriptor     */
 int hw_set = 0;			/* flag if hw-type was set (-H) */
 char device[16] = "";		/* current device               */
@@ -178,7 +178,7 @@ static int arp_del(char **args)
 	    if (*++args == NULL)
 		usage();
 	    if (strcmp(*args, "255.255.255.255") != 0) {
-		strcpy(host, *args);
+		safe_strncpy(host, *args, (sizeof host));
 		if (ap->input(0, host, sa) < 0) {
 		    ap->herror(host);
 		    return (-1);
@@ -197,7 +197,7 @@ static int arp_del(char **args)
     if (flags == 0)
 	flags = 3;
 
-    strcpy(req.arp_dev, device);
+    safe_strncpy(req.arp_dev, device, sizeof(req.arp_dev));
 
     /* unfortuatelly the kernel interface does not allow us to
        delete private entries anlone, so we need this hack
@@ -238,12 +238,12 @@ static int arp_del(char **args)
 }
 
 /* Get the hardware address to a specified interface name */
-static int arp_getdevhw(char *ifname, struct sockaddr *sa, struct hwtype *hw)
+static int arp_getdevhw(char *ifname, struct sockaddr *sa, const struct hwtype *hw)
 {
     struct ifreq ifr;
-    struct hwtype *xhw;
+    const struct hwtype *xhw;
 
-    strcpy(ifr.ifr_name, ifname);
+    safe_strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0) {
 	fprintf(stderr, _("arp: cant get HW-Address for `%s': %s.\n"), ifname, strerror(errno));
 	return (-1);
@@ -355,7 +355,7 @@ static int arp_set(char **args)
 	    if (*++args == NULL)
 		usage();
 	    if (strcmp(*args, "255.255.255.255") != 0) {
-		strcpy(host, *args);
+		safe_strncpy(host, *args, (sizeof host));
 		if (ap->input(0, host, sa) < 0) {
 		    ap->herror(host);
 		    return (-1);
@@ -373,7 +373,7 @@ static int arp_set(char **args)
     /* Fill in the remainder of the request. */
     req.arp_flags = flags;
 
-    strcpy(req.arp_dev, device);
+    safe_strncpy(req.arp_dev, device, sizeof(req.arp_dev));
 
     /* Call the kernel. */
     if (opt_v)
@@ -434,10 +434,10 @@ static int arp_file(char *name)
 
 
 /* Print the contents of an ARP request block. */
-static void arp_disp_2(char *name, int type, int arp_flags, char *hwa, char *mask, char *dev)
+static void arp_disp_2(const char *name, int type, int arp_flags, const char *hwa, const char *mask, const char *dev)
 {
     static int title = 0;
-    struct hwtype *xhw;
+    const struct hwtype *xhw;
     char flags[10];
 
     xhw = get_hwntype(type);
@@ -484,9 +484,9 @@ static void arp_disp_2(char *name, int type, int arp_flags, char *hwa, char *mas
 }
 
 /* Print the contents of an ARP request block. */
-static void arp_disp(char *name, char *ip, int type, int arp_flags, char *hwa, char *mask, char *dev)
+static void arp_disp(const char *name, const char *ip, int type, int arp_flags, const char *hwa, const char *mask, const char *dev)
 {
-    struct hwtype *xhw;
+    const struct hwtype *xhw;
 
     xhw = get_hwntype(type);
     if (xhw == NULL)
@@ -538,7 +538,7 @@ static int arp_show(char *name)
     char dev[100];
     int type, flags;
     FILE *fp;
-    char *hostname;
+    const char *hostname;
     int num, entries = 0, showed = 0;
 
     host[0] = '\0';
@@ -560,11 +560,11 @@ static int arp_show(char *name)
     }
     /* Bypass header -- read until newline */
     if (fgets(line, sizeof(line), fp) != (char *) NULL) {
-	strcpy(mask, "-");
-	strcpy(dev, "-");
+	safe_strncpy(mask, "-", sizeof(mask));
+	safe_strncpy(dev, "-", sizeof(dev));
 	/* Read the ARP cache entries. */
 	for (; fgets(line, sizeof(line), fp);) {
-	    num = sscanf(line, "%s 0x%x 0x%x %100s %100s %100s\n",
+	    num = sscanf(line, "%s 0x%x 0x%x %99s %99s %99s\n",
 			 ip, &type, &flags, hwa, mask, dev);
 	    if (num < 4)
 		break;
@@ -617,7 +617,7 @@ static int arp_show(char *name)
 
 static void version(void)
 {
-    fprintf(stderr, "%s\n%s\n%s\n", Release, Version, Features);
+    fprintf(stderr, "%s\n%s\n", Release, Features);
     exit(E_VERSION);
 }
 
@@ -628,8 +628,9 @@ static void usage(void)
     fprintf(stderr, _("  arp [-vnD] [<HW>] [-i <if>] -f  [<filename>]            <-Add entry from file\n"));
     fprintf(stderr, _("  arp [-v]   [<HW>] [-i <if>] -s  <host> <hwaddr> [temp]            <-Add entry\n"));
     fprintf(stderr, _("  arp [-v]   [<HW>] [-i <if>] -Ds <host> <if> [netmask <nm>] pub          <-''-\n\n"));
-    
+
     fprintf(stderr, _("        -a                       display (all) hosts in alternative (BSD) style\n"));
+    fprintf(stderr, _("        -e                       display (all) hosts in default (Linux) style\n"));
     fprintf(stderr, _("        -s, --set                set a new ARP entry\n"));
     fprintf(stderr, _("        -d, --delete             delete a specified entry\n"));
     fprintf(stderr, _("        -v, --verbose            be verbose\n"));

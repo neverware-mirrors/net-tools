@@ -24,14 +24,11 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1))
 #include <net/if.h>
-#else
-#include <linux/if.h>
-#endif
 
 #include "config.h"
 #include "intl.h"
+#include "util.h"
 #include "util-ank.h"
 #include "net-support.h"
 #include "version.h"
@@ -44,13 +41,11 @@ int  filter_family;
 #define NEWADDR		1
 #define DELADDR		2
 
-char *Release = RELEASE,
-     *Version = "ipmaddr 1.1",
-     *Signature = "Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>";
+static char *Release = RELEASE, *Signature = "Alexey Kuznetsov";
 
 static void version(void)
 {
-	printf("%s\n%s\n%s\n", Release, Version, Signature);
+	printf("%s\n%s\n", Release, Signature);
 	exit(E_VERSION);
 }
 
@@ -61,7 +56,7 @@ static void usage(void)
 	fprintf(stderr, _("Usage: ipmaddr [ add | del ] MULTIADDR dev STRING\n"));
 	fprintf(stderr, _("       ipmaddr show [ dev STRING ] [ ipv4 | ipv6 | link | all ]\n"));
 	fprintf(stderr, _("       ipmaddr -V | -version\n"));
-	exit(-1);
+	exit(E_USAGE);
 }
 
 static void print_lla(FILE *fp, int len, unsigned char *addr)
@@ -75,7 +70,7 @@ static void print_lla(FILE *fp, int len, unsigned char *addr)
 	}
 }
 
-static int parse_lla(char *str, unsigned char *addr)
+static int parse_lla(char *str, char *addr)
 {
 	int len=0;
 
@@ -159,8 +154,7 @@ void read_dev_mcast(struct ma_info **result_p)
 
 		len = parse_hex(hexa, (unsigned char*)&m.addr.data);
 		if (len >= 0) {
-			struct ma_info *ma = malloc(sizeof(m));
-
+			struct ma_info *ma = xmalloc(sizeof(m));
 			memcpy(ma, &m, sizeof(m));
 			ma->addr.bytelen = len;
 			ma->addr.bitlen = len<<3;
@@ -174,22 +168,21 @@ void read_dev_mcast(struct ma_info **result_p)
 
 void read_igmp(struct ma_info **result_p)
 {
-	struct ma_info m;
+	struct ma_info m, *ma = NULL;
 	char buf[256];
 	FILE *fp = fopen(_PATH_PROCNET_IGMP, "r");
 
 	if (!fp)
 		return;
 	memset(&m, 0, sizeof(m));
-	fgets(buf, sizeof(buf), fp);
+	if (fgets(buf, sizeof(buf), fp))
+		/* eat line */;
 
 	m.addr.family = AF_INET;
 	m.addr.bitlen = 32;
 	m.addr.bytelen = 4;
 
 	while (fgets(buf, sizeof(buf), fp)) {
-		struct ma_info *ma = malloc(sizeof(m));
-
 		if (buf[0] != '\t') {
 			sscanf(buf, "%d%s", &m.index, m.name);
 			continue;
@@ -200,7 +193,7 @@ void read_igmp(struct ma_info **result_p)
 
 		sscanf(buf, "%08x%d", (__u32*)&m.addr.data, &m.users);
 
-		ma = malloc(sizeof(m));
+		ma = xmalloc(sizeof(m));
 		memcpy(ma, &m, sizeof(m));
 		maddr_ins(result_p, ma);
 	}
@@ -231,8 +224,7 @@ void read_igmp6(struct ma_info **result_p)
 
 		len = parse_hex(hexa, (unsigned char*)&m.addr.data);
 		if (len >= 0) {
-			struct ma_info *ma = malloc(sizeof(m));
-
+			struct ma_info *ma = xmalloc(sizeof(m));
 			memcpy(ma, &m, sizeof(m));
 
 			ma->addr.bytelen = len;
@@ -404,7 +396,7 @@ int main(int argc, char **argv)
 		basename = argv[0];
 	else
 		basename++;
-	
+
 	while (argc > 1) {
 		if (argv[1][0] != '-')
 			break;

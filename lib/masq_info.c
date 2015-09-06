@@ -6,7 +6,7 @@
  *              NET-3 Networking Distribution for the LINUX operating
  *              system. (net-tools, net-drivers)
  *
- * Version:     $Id: masq_info.c,v 1.7 2000/10/08 01:00:44 ecki Exp $
+ * Version:     $Id: masq_info.c,v 1.8 2009/09/06 22:52:01 vapier Exp $
  *
  * Author:      Bernd 'eckes' Eckenfels <net-tools@lina.inka.de>
  *              Copyright 1999 Bernd Eckenfels, Germany
@@ -31,8 +31,9 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdio.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include "net-support.h"
 #include "pathnames.h"
@@ -54,7 +55,7 @@ struct masq {
     short pdelta;		/* Delta in sequence numbers before last */
 };
 
-static struct aftype *ap;	/* current address family       */
+static const struct aftype *ap;	/* current address family       */
 static int has_pdelta;
 
 static void print_masq(struct masq *ms, int numeric_host, int numeric_port,
@@ -92,25 +93,30 @@ static int read_masqinfo(FILE * f, struct masq *mslist, int nmslist)
     int n, nread = 0;
     struct masq *ms;
     char buf[256];
+    uint32_t src_addr, dst_addr;
 
     for (nread = 0; nread < nmslist; nread++) {
 	ms = &mslist[nread];
 	if (has_pdelta) {
-	    if ((n = fscanf(f, " %s %lX:%hX %lX:%hX %hX %lX %hd %hd %lu",
+	    if ((n = fscanf(f, " %s %"PRIx32":%hX %"PRIx32":%hX %hX %lX %hd %hd %lu",
 			    buf,
-		  (unsigned long *) &ms->src.sin_addr.s_addr, &ms->sport,
-		  (unsigned long *) &ms->dst.sin_addr.s_addr, &ms->dport,
+			    &src_addr, &ms->sport,
+			    &dst_addr, &ms->dport,
 			    &ms->mport, &ms->initseq, &ms->delta,
 			    &ms->pdelta, &ms->expires)) == -1)
 		return nread;
+	    memcpy(&ms->src.sin_addr.s_addr, &src_addr, 4);
+	    memcpy(&ms->dst.sin_addr.s_addr, &dst_addr, 4);
 	} else {
-	    if ((n = fscanf(f, " %s %lX:%hX %lX:%hX %hX %lX %hd %lu",
+	    if ((n = fscanf(f, " %s %"PRIx32":%hX %"PRIx32":%hX %hX %lX %hd %lu",
 			    buf,
-		  (unsigned long *) &ms->src.sin_addr.s_addr, &ms->sport,
-		  (unsigned long *) &ms->dst.sin_addr.s_addr, &ms->dport,
+			    &src_addr, &ms->sport,
+			    &dst_addr, &ms->dport,
 			    &ms->mport, &ms->initseq, &ms->delta,
 			    &ms->expires)) == -1)
 		return nread;
+	    memcpy(&ms->src.sin_addr.s_addr, &src_addr, 4);
+	    memcpy(&ms->dst.sin_addr.s_addr, &dst_addr, 4);
 	}
 	if ((has_pdelta && (n != 10)) || (!has_pdelta && (n != 9))) {
 	    EINTERN("masq_info.c", "ip_masquerade format error");
@@ -119,7 +125,9 @@ static int read_masqinfo(FILE * f, struct masq *mslist, int nmslist)
 	ms->src.sin_family = AF_INET;
 	ms->dst.sin_family = AF_INET;
 
-	if (strcmp("TCP", buf) == 0)
+	if (strcmp("IP", buf) == 0)
+	    ms->proto = "ip";
+	else if (strcmp("TCP", buf) == 0)
 	    ms->proto = "tcp";
 	else if (strcmp("UDP", buf) == 0)
 	    ms->proto = "udp";
@@ -166,7 +174,11 @@ int ip_masq_info(int numeric_host, int numeric_port, int ext)
 	fclose(f);
 	return (-1);
     }
-    fgets(buf, sizeof(buf), f);
+    if (fgets(buf, sizeof(buf), f) == NULL) {
+	EINTERN("masq_info", "fgets() failed");
+	fclose(f);
+	return (-1);
+    }
     has_pdelta = strstr(buf, "PDelta") ? 1 : 0;
 
     mslist = (struct masq *) malloc(16 * sizeof(struct masq));
@@ -206,10 +218,9 @@ int ip_masq_info(int numeric_host, int numeric_port, int ext)
 	}
 	for (i = 0; i < ntotal; i++)
 	    print_masq(&(mslist[i]), numeric_host, numeric_port, ext);
-	if (mslist)
-	    free(mslist);
-
     }
+
+    free(mslist);
     return 0;
 }
 #endif

@@ -20,7 +20,7 @@
  *              your option) any later version.
  */
 
-/* 
+/*
  *    This needs to be included AFTER the KErnel Header Files
  *      one of the FEATURE_ should be defined to get the Feature Variable
  *      definition included
@@ -117,6 +117,9 @@ static char *Features =
 "-I18N"
 #endif				/* I18N */
 
+#if HAVE_SELINUX
+" +SELINUX"
+#endif
 
 "\nAF: "
 #ifdef DFLT_AF
@@ -183,6 +186,12 @@ static char *Features =
 "-"
 #endif
 "ROSE "
+#if HAVE_AFBLUETOOTH
+"+"
+#else
+"-"
+#endif
+"BLUETOOTH"
 
 "\nHW: "
 

@@ -14,11 +14,11 @@
  *960203 {1.23} Bernd Eckenfels :       net-features support
  *960217 {1.24} Bernd Eckenfels :       get_sname
  *960219 {1.25} Bernd Eckenfels :       extern int h_errno
- *960329 {1.26} Bernd Eckenfels :       resolve 255.255.255.255 
+ *960329 {1.26} Bernd Eckenfels :       resolve 255.255.255.255
  *980101 {1.27} Bernd Eckenfels :	resolve raw sockets in /etc/protocols
  *990302 {1.28} Phil Blundell   :       add netmask to INET_rresolve
  *991007        Kurt Garloff	:	rresolve, resolve: may be hosts
- *		<garloff@suse.de>	store type (host?) in cache 
+ *		<garloff@suse.de>	store type (host?) in cache
  *
  *              This program is free software; you can redistribute it
  *              and/or  modify it under  the terms of  the GNU General
@@ -96,9 +96,9 @@ static int INET_resolve(char *name, struct sockaddr_in *sin, int hostfirst)
 #ifdef DEBUG
     if (hostfirst) fprintf (stderr, "gethostbyname (%s)\n", name);
 #endif
-    if (hostfirst && 
+    if (hostfirst &&
 	(hp = gethostbyname(name)) != (struct hostent *) NULL) {
-	memcpy((char *) &sin->sin_addr, (char *) hp->h_addr_list[0], 
+	memcpy((char *) &sin->sin_addr, (char *) hp->h_addr_list[0],
 		sizeof(struct in_addr));
 	return 0;
     }
@@ -127,18 +127,18 @@ static int INET_resolve(char *name, struct sockaddr_in *sin, int hostfirst)
 	errno = h_errno;
 	return -1;
     }
-    memcpy((char *) &sin->sin_addr, (char *) hp->h_addr_list[0], 
+    memcpy((char *) &sin->sin_addr, (char *) hp->h_addr_list[0],
 	   sizeof(struct in_addr));
 
     return 0;
 }
 
 
-/* numeric: & 0x8000: default instead of *, 
- *	    & 0x4000: host instead of net, 
+/* numeric: & 0x8000: default instead of *,
+ *	    & 0x4000: host instead of net,
  *	    & 0x0fff: don't resolve
  */
-static int INET_rresolve(char *name, size_t len, struct sockaddr_in *sin, 
+static int INET_rresolve(char *name, size_t len, struct sockaddr_in *sin,
 			 int numeric, unsigned int netmask)
 {
     struct hostent *ent;
@@ -157,22 +157,32 @@ static int INET_rresolve(char *name, size_t len, struct sockaddr_in *sin,
     }
     ad = sin->sin_addr.s_addr;
 #ifdef DEBUG
-    fprintf (stderr, "rresolve: %08lx, mask %08x, num %08x \n", ad, netmask, numeric);
+    fprintf (stderr, "rresolve: %08lx, mask %08x, num %08x, len %d\n", ad, netmask, numeric, len);
 #endif
-    if (ad == INADDR_ANY) {
-	if ((numeric & 0x0FFF) == 0) {
-	    if (numeric & 0x8000)
-		safe_strncpy(name, "default", len);
-	    else
-	        safe_strncpy(name, "*", len);
-	    return (0);
-	}
-    }
+
+    // if no symbolic names are requested we shortcut with ntoa
     if (numeric & 0x0FFF) {
         safe_strncpy(name, inet_ntoa(sin->sin_addr), len);
 	return (0);
     }
 
+    // we skip getnetbyaddr for 0.0.0.0/0 and 0.0.0.0/~0
+    if (ad == INADDR_ANY) {
+        if (netmask == INADDR_ANY) {
+            // for 0.0.0.0/0 we hardcode symbolic name
+	    if (numeric & 0x8000)
+		safe_strncpy(name, "default", len);
+	    else
+	        safe_strncpy(name, "*", len);
+	    return (0);
+	} else {
+	    // for 0.0.0.0/1 we skip getnetbyname()
+            safe_strncpy(name, "0.0.0.0", len);
+            return (0);
+	}
+    }
+
+    // it is a host address if flagged or any host bits set
     if ((ad & (~netmask)) != 0 || (numeric & 0x4000))
 	host = 1;
 #if 0
@@ -183,7 +193,7 @@ static int INET_rresolve(char *name, size_t len, struct sockaddr_in *sin,
 	if (pn->addr.sin_addr.s_addr == ad && pn->host == host) {
 	    safe_strncpy(name, pn->name, len);
 #ifdef DEBUG
-	    fprintf (stderr, "rresolve: found %s %08lx in cache\n", (host? "host": "net"), ad);
+	    fprintf (stderr, "rresolve: found %s %08lx in cache (name=%s, len=%d)\n", (host? "host": "net"), ad, name, len);
 #endif
 	    return (0);
 	}
@@ -210,54 +220,57 @@ static int INET_rresolve(char *name, size_t len, struct sockaddr_in *sin,
     }
     if ((ent == NULL) && (np == NULL))
 	safe_strncpy(name, inet_ntoa(sin->sin_addr), len);
-    pn = (struct addr *) malloc(sizeof(struct addr));
+    pn = (struct addr *) xmalloc(sizeof(struct addr));
     pn->addr = *sin;
     pn->next = INET_nn;
     pn->host = host;
-    pn->name = (char *) malloc(strlen(name) + 1);
-    strcpy(pn->name, name);
+    pn->name = xstrdup(name);
     INET_nn = pn;
 
     return (0);
 }
 
 
-static void INET_reserror(char *text)
+static void INET_reserror(const char *text)
 {
     herror(text);
 }
 
 
 /* Display an Internet socket address. */
-static char *INET_print(unsigned char *ptr)
+static const char *INET_print(const char *ptr)
 {
-    return (inet_ntoa((*(struct in_addr *) ptr)));
+    static char name[INET_ADDRSTRLEN + 1];
+    socklen_t len = sizeof(name) - 1;
+    name[len] = '\0';
+    inet_ntop(AF_INET, ptr, name, len);
+    return name;
 }
 
 
 /* Display an Internet socket address. */
-static char *INET_sprint(struct sockaddr *sap, int numeric)
+static const char *INET_sprint(const struct sockaddr *sap, int numeric)
 {
     static char buff[128];
 
     if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
 	return safe_strncpy(buff, _("[NONE SET]"), sizeof(buff));
 
-    if (INET_rresolve(buff, sizeof(buff), (struct sockaddr_in *) sap, 
+    if (INET_rresolve(buff, sizeof(buff), (struct sockaddr_in *) sap,
 		      numeric, 0xffffff00) != 0)
 	return (NULL);
 
     return (buff);
 }
 
-char *INET_sprintmask(struct sockaddr *sap, int numeric, 
+char *INET_sprintmask(struct sockaddr *sap, int numeric,
 		      unsigned int netmask)
 {
     static char buff[128];
 
     if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
 	return safe_strncpy(buff, _("[NONE SET]"), sizeof(buff));
-    if (INET_rresolve(buff, sizeof(buff), (struct sockaddr_in *) sap, 
+    if (INET_rresolve(buff, sizeof(buff), (struct sockaddr_in *) sap,
 		      numeric, netmask) != 0)
 	return (NULL);
     return (buff);
@@ -385,10 +398,8 @@ static int read_services(void)
     setservent(1);
     while ((se = getservent())) {
 	/* Allocate a service entry. */
-	item = (struct service *) malloc(sizeof(struct service));
-	if (item == NULL)
-	    perror("netstat");
-	item->name = strdup(se->s_name);
+	item = (struct service *) xmalloc(sizeof(struct service));
+	item->name = xstrdup(se->s_name);
 	item->number = se->s_port;
 
 	/* Fill it in. */
@@ -398,16 +409,17 @@ static int read_services(void)
 	    add2list(&udp_name, item);
 	} else if (!strcmp(se->s_proto, "raw")) {
 	    add2list(&raw_name, item);
+	} else { /* sctp, ddp, dccp */
+	    free(item->name);
+	    free(item);
 	}
     }
     endservent();
     setprotoent(1);
     while ((pe = getprotoent())) {
 	/* Allocate a service entry. */
-	item = (struct service *) malloc(sizeof(struct service));
-	if (item == NULL)
-	    perror("netstat");
-	item->name = strdup(pe->p_name);
+	item = (struct service *) xmalloc(sizeof(struct service));
+	item->name = xstrdup(pe->p_name);
 	item->number = htons(pe->p_proto);
 	add2list(&raw_name, item);
     }
@@ -416,35 +428,38 @@ static int read_services(void)
 }
 
 
-char *get_sname(int socknumber, char *proto, int numeric)
+const char *get_sname(int socknumber, const char *proto, int numeric)
 {
     static char buffer[64], init = 0;
     struct service *item;
 
     if (socknumber == 0)
 	return ("*");
-    if (numeric) {
-	sprintf(buffer, "%d", ntohs(socknumber));
-	return (buffer);
-    }
+    if (numeric)
+	goto do_ntohs;
+
     if (!init) {
 	(void) read_services();
 	init = 1;
     }
     buffer[0] = '\0';
-    if (!strcmp(proto, "tcp")) {
-	if ((item = searchlist(tcp_name, socknumber)) != NULL)
-	    sprintf(buffer, "%s", item->name);
-    } else if (!strcmp(proto, "udp")) {
-	if ((item = searchlist(udp_name, socknumber)) != NULL)
-	    sprintf(buffer, "%s", item->name);
-    } else if (!strcmp(proto, "raw")) {
-	if ((item = searchlist(raw_name, socknumber)) != NULL)
-	    sprintf(buffer, "%s", item->name);
-
+    if (!strcmp(proto, "tcp"))
+	item = searchlist(tcp_name, socknumber);
+    else if (!strcmp(proto, "udp"))
+	item = searchlist(udp_name, socknumber);
+    else if (!strcmp(proto, "raw"))
+	item = searchlist(raw_name, socknumber);
+    else
+	item = NULL;
+    if (item) {
+	strncpy(buffer, item->name, sizeof(buffer));
+	buffer[sizeof(buffer) - 1] = '\0';
     }
-    if (!buffer[0])
+
+    if (!buffer[0]) {
+ do_ntohs:
 	sprintf(buffer, "%d", ntohs(socknumber));
+    }
     return (buffer);
 }
 

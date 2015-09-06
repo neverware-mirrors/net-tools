@@ -6,7 +6,7 @@
  * Author:      Daniel Stodden <stodden@in.tum.de>
  *              Copyright 2001 Daniel Stodden
  *
- *              blueprinted from ether.c 
+ *              blueprinted from ether.c
  *              Copyright 1993 MicroWalt Corporation
  *
  *              This program is free software; you can redistribute it
@@ -49,21 +49,27 @@
 struct hwtype eui64_hwtype;
 
 /* Display an EUI-64 address in readable format. */
-static char *pr_eui64( unsigned char *ptr )
+static const char *pr_eui64(const char *ptr)
 {
 	static char buff[64];
 
 	snprintf(buff, sizeof(buff), "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X",
-		 (ptr[0] & 0377), (ptr[1] & 0377), (ptr[2] & 0377), (ptr[3] & 0377), 
+		 (ptr[0] & 0377), (ptr[1] & 0377), (ptr[2] & 0377), (ptr[3] & 0377),
 		 (ptr[4] & 0377), (ptr[5] & 0377), (ptr[6] & 0377), (ptr[7] & 0377)
 		);
 	return (buff);
 }
 
+#ifdef DEBUG
+#define _DEBUG 1
+#else
+#define _DEBUG 0
+#endif
+
 /* Start the PPP encapsulation on the file descriptor. */
 static int in_eui64( char *bufp, struct sockaddr *sap )
 {
-	unsigned char *ptr;
+	char *ptr;
 	char c, *orig;
 	int i;
 	unsigned val;
@@ -73,7 +79,7 @@ static int in_eui64( char *bufp, struct sockaddr *sap )
 
 	i = 0;
 	orig = bufp;
-	
+
 	while ((*bufp != '\0') && (i < EUI64_ALEN)) {
 		val = 0;
 		c = *bufp++;
@@ -84,10 +90,9 @@ static int in_eui64( char *bufp, struct sockaddr *sap )
 		else if (c >= 'A' && c <= 'F')
 			val = c - 'A' + 10;
 		else {
-#ifdef DEBUG
-			fprintf( stderr, _("in_eui64(%s): invalid eui64 address!\n"), 
-				 orig );
-#endif
+			if (_DEBUG)
+				fprintf( stderr, _("in_eui64(%s): invalid eui64 address!\n"),
+					 orig );
 			errno = EINVAL;
 			return (-1);
 		}
@@ -103,10 +108,9 @@ static int in_eui64( char *bufp, struct sockaddr *sap )
 		else if (c == ':' || c == 0)
 			val >>= 4;
 		else {
-#ifdef DEBUG
-			fprintf( stderr, _("in_eui64(%s): invalid eui64 address!\n"), 
-				 orig );
-#endif
+			if (_DEBUG)
+				fprintf( stderr, _("in_eui64(%s): invalid eui64 address!\n"),
+					 orig );
 			errno = EINVAL;
 			return (-1);
 		}
@@ -116,31 +120,24 @@ static int in_eui64( char *bufp, struct sockaddr *sap )
 
 		*ptr++ = (unsigned char) (val & 0377);
 		i++;
-		
+
 		/* We might get a semicolon here - not required. */
 		if (*bufp == ':') {
-			if (i == EUI64_ALEN) {
-#ifdef DEBUG
+			if (_DEBUG && i == EUI64_ALEN)
 				fprintf(stderr, _("in_eui64(%s): trailing : ignored!\n"),
-					orig)
-#endif
-					; /* nothing */
-			}
+					orig);
 			bufp++;
 		}
 	}
 
 	/* That's it.  Any trailing junk? */
-	if ((i == EUI64_ALEN) && (*bufp != '\0')) {
-#ifdef DEBUG
+	if (_DEBUG && (i == EUI64_ALEN) && (*bufp != '\0')) {
 		fprintf(stderr, _("in_eui64(%s): trailing junk!\n"), orig);
 		errno = EINVAL;
 		return (-1);
-#endif
 	}
-#ifdef DEBUG
-	fprintf(stderr, "in_eui64(%s): %s\n", orig, pr_eui64(sap->sa_data));
-#endif
+	if (_DEBUG)
+		fprintf(stderr, "in_eui64(%s): %s\n", orig, pr_eui64(sap->sa_data));
 
     return (0);
 }

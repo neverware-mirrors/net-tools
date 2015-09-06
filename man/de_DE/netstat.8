@@ -20,6 +20,8 @@ netstat \- Anzeige von Netzwerksverbindungen, Routentabellen, Schnittstellenstat
 .RB [ \-venaoc ]
 .RB [ \-\-tcp | \-t ]
 .RB [ \-\-udp | \-u ]
+.RB [ \-\-udplite | \-U ]
+.RB [ \-\-sctp | \-S ]
 .RB [ \-\-raw | \-w ]
 .RB [ \-\-groups | \-g ]
 .RB [ \-\-unix | \-x ] 
@@ -414,7 +416,7 @@ werden.)
 Seit der Kern Version 2.2 zeigt netstat -i keine Schnittstellenstatistiken
 von Schnittstellenaliasen mehr an.  Um Statistiken per Schnittstelle zur
 erhalten, m\(:ussen jetzt mit dem
-.BR ipchains(8) 
+.BR iptables(8)
 Befehl explizite Regeln zugef\(:ugt werden.
 
 .SH DATEIEN
@@ -477,10 +479,7 @@ Befehl explizite Regeln zugef\(:ugt werden.
 .SH SIEHE AUCH
 .BR route (8), 
 .BR ifconfig (8), 
-.BR ipfw (4), 
-.BR ipfw (8), 
-.BR ipfwadm (8)
-.BR ipchains (8)
+.BR iptables (8)
 
 .PP
 .SH PROBLEME

@@ -38,9 +38,10 @@ int flag_econet;
 int flag_rose;
 int flag_x25 = 0;
 int flag_ash;
+int flag_bluetooth;
 
 
-struct aftrans_t {
+static const struct aftrans_t {
     char *alias;
     char *name;
     int *flag;
@@ -92,6 +93,9 @@ struct aftrans_t {
         "ash", "ash", &flag_ash
     },
     {
+        "bluetooth", "bluetooth", &flag_bluetooth
+    },
+    {
 	0, 0, 0
     }
 };
@@ -113,7 +117,7 @@ extern struct aftype ash_aftype;
 
 static short sVafinit = 0;
 
-struct aftype *aftypes[] =
+struct aftype * const aftypes[] =
 {
 #if HAVE_AFUNIX
     &unix_aftype,
@@ -152,7 +156,7 @@ struct aftype *aftypes[] =
     NULL
 };
 
-void afinit()
+static void afinit(void)
 {
     unspec_aftype.title = _("UNSPEC");
 #if HAVE_AFUNIX
@@ -197,15 +201,14 @@ void aftrans_def(char *tool, char *argv0, char *dflt)
     char *tmp;
     char *buf;
 
-    strcpy(afname, dflt);
+    safe_strncpy(afname, dflt, sizeof(afname));
 
     if (!(tmp = strrchr(argv0, '/')))
 	tmp = argv0;		/* no slash?! */
     else
 	tmp++;
 
-    if (!(buf = strdup(tmp)))
-	return;
+    buf = xstrdup(tmp);
 
     if (strlen(tool) >= strlen(tmp)) {
 	free(buf);
@@ -223,16 +226,16 @@ void aftrans_def(char *tool, char *argv0, char *dflt)
 
     afname[0] = '\0';
     if (aftrans_opt(buf))
-	strcpy(afname, buf);
+	safe_strncpy(afname, buf, sizeof(afname));
 
     free(buf);
 }
 
 
 /* Check our protocol family table for this family. */
-struct aftype *get_aftype(const char *name)
+const struct aftype *get_aftype(const char *name)
 {
-    struct aftype **afp;
+    struct aftype * const *afp;
 
     if (!sVafinit)
 	afinit();
@@ -250,9 +253,9 @@ struct aftype *get_aftype(const char *name)
 
 
 /* Check our protocol family table for this family. */
-struct aftype *get_afntype(int af)
+const struct aftype *get_afntype(int af)
 {
-    struct aftype **afp;
+    struct aftype * const *afp;
 
     if (!sVafinit)
 	afinit();
@@ -269,23 +272,13 @@ struct aftype *get_afntype(int af)
 /* Check our protocol family table for this family and return its socket */
 int get_socket_for_af(int af)
 {
-    struct aftype **afp;
-
-    if (!sVafinit)
-	afinit();
-
-    afp = aftypes;
-    while (*afp != NULL) {
-	if ((*afp)->af == af)
-	    return (*afp)->fd;
-	afp++;
-    }
-    return -1;
+    const struct aftype *afp = get_afntype(af);
+    return afp ? afp->fd : -1;
 }
 
 int aftrans_opt(const char *arg)
 {
-    struct aftrans_t *paft;
+    const struct aftrans_t *paft;
     char *tmp1, *tmp2;
     char buf[256];
 
@@ -300,7 +293,6 @@ int aftrans_opt(const char *arg)
 	if (tmp2)
 	    *(tmp2++) = '\0';
 
-	paft = aftrans;
 	for (paft = aftrans; paft->alias; paft++) {
 	    if (strcmp(tmp1, paft->alias))
 		continue;
@@ -328,8 +320,8 @@ int aftrans_opt(const char *arg)
 /* type: 0=all, 1=getroute */
 void print_aflist(int type) {
     int count = 0;
-    char * txt;
-    struct aftype **afp;
+    const char * txt;
+    struct aftype * const *afp;
 
     if (!sVafinit)
 	afinit();
@@ -339,7 +331,7 @@ void print_aflist(int type) {
 	if ((type == 1 && ((*afp)->rprint == NULL)) || ((*afp)->af == 0)) {
 		afp++; continue;
 	}
-	if ((count % 3) == 0) fprintf(stderr,count?"\n    ":"    "); 
+	if ((count % 3) == 0) fprintf(stderr,count?"\n    ":"    ");
         txt = (*afp)->name; if (!txt) txt = "..";
 	fprintf(stderr,"%s (%s) ",txt,(*afp)->title);
 	count++;

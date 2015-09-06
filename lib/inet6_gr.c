@@ -23,14 +23,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#ifndef __GLIBC__
-#include <netinet6/ipv6_route.h>	/* glibc doesn't have this */
-#endif
 #include "version.h"
 #include "net-support.h"
 #include "pathnames.h"
 #include "intl.h"
 #include "net-features.h"
+#include "util.h"
 
 /* neighbour discovery from linux-2.4.0/include/net/neighbour.h */
 
@@ -63,7 +61,7 @@ int rprint_fib6(int ext, int numeric)
     struct sockaddr_in6 saddr6, snaddr6;
     int num, iflags, metric, refcnt, use, prefix_len, slen;
     FILE *fp = fopen(_PATH_PROCNET_ROUTE6, "r");
-    
+
     char addr6p[8][5], saddr6p[8][5], naddr6p[8][5];
 
     if (!fp) {
@@ -82,7 +80,7 @@ int rprint_fib6(int ext, int numeric)
 	     "Flag Met Ref Use If\n"));
 
     while (fgets(buff, 1023, fp)) {
-	num = sscanf(buff, "%4s%4s%4s%4s%4s%4s%4s%4s %02x %4s%4s%4s%4s%4s%4s%4s%4s %02x %4s%4s%4s%4s%4s%4s%4s%4s %08x %08x %08x %08x %s\n",
+	num = sscanf(buff, "%4s%4s%4s%4s%4s%4s%4s%4s %02x %4s%4s%4s%4s%4s%4s%4s%4s %02x %4s%4s%4s%4s%4s%4s%4s%4s %08x %08x %08x %08x %15s\n",
 		     addr6p[0], addr6p[1], addr6p[2], addr6p[3],
 		     addr6p[4], addr6p[5], addr6p[6], addr6p[7],
 		     &prefix_len,
@@ -92,10 +90,8 @@ int rprint_fib6(int ext, int numeric)
 		     naddr6p[0], naddr6p[1], naddr6p[2], naddr6p[3],
 		     naddr6p[4], naddr6p[5], naddr6p[6], naddr6p[7],
 		     &metric, &refcnt, &use, &iflags, iface);
-#if 0
-	if (num < 23)
+	if (0 && num < 23)
 	    continue;
-#endif
 	if (iflags & RTF_CACHE) {
 		if (!(numeric & RTF_CACHE))
 			continue;
@@ -103,14 +99,14 @@ int rprint_fib6(int ext, int numeric)
 		if (numeric & RTF_CACHE)
 			continue;
 	}
-			
+
 	/* Fetch and resolve the target address. */
 	snprintf(addr6, sizeof(addr6), "%s:%s:%s:%s:%s:%s:%s:%s",
 		 addr6p[0], addr6p[1], addr6p[2], addr6p[3],
 		 addr6p[4], addr6p[5], addr6p[6], addr6p[7]);
 	inet6_aftype.input(1, addr6, (struct sockaddr *) &saddr6);
 	snprintf(addr6, sizeof(addr6), "%s/%d",
-		 inet6_aftype.sprint((struct sockaddr *) &saddr6, 1),
+		 inet6_aftype.sprint((struct sockaddr *) &saddr6, numeric),
 		 prefix_len);
 
 	/* Fetch and resolve the nexthop address. */
@@ -119,7 +115,7 @@ int rprint_fib6(int ext, int numeric)
 		 naddr6p[4], naddr6p[5], naddr6p[6], naddr6p[7]);
 	inet6_aftype.input(1, naddr6, (struct sockaddr *) &snaddr6);
 	snprintf(naddr6, sizeof(naddr6), "%s",
-		 inet6_aftype.sprint((struct sockaddr *) &snaddr6, 1));
+		 inet6_aftype.sprint((struct sockaddr *) &snaddr6, numeric));
 
 	/* Decode the flags. */
 
@@ -163,9 +159,10 @@ int rprint_cache6(int ext, int numeric)
     char buff[4096], iface[16], flags[16];
     char addr6[128], haddr[20], statestr[20];
     struct sockaddr_in6 saddr6;
-    int type, num, refcnt, prefix_len, location, state, gc;
+    int type, refcnt, prefix_len, location, state, gc;
     long tstamp, expire, ndflags, reachable, stale, delete;
     FILE *fp = fopen(_PATH_PROCNET_NDISC, "r");
+    long clk_tck = ticks_per_second();
     char addr6p[8][5], haddrp[6][3];
 
     if (!fp) {
@@ -184,7 +181,7 @@ int rprint_cache6(int ext, int numeric)
 
 
     while (fgets(buff, 1023, fp)) {
-	num = sscanf(buff, "%4s%4s%4s%4s%4s%4s%4s%4s %02x %02x %02x %02x %08lx %08lx %08lx %04x %04x %04lx %8s %2s%2s%2s%2s%2s%2s\n",
+	sscanf(buff, "%4s%4s%4s%4s%4s%4s%4s%4s %02x %02x %02x %02x %08lx %08lx %08lx %04x %04x %04lx %8s %2s%2s%2s%2s%2s%2s\n",
 		     addr6p[0], addr6p[1], addr6p[2], addr6p[3],
 		     addr6p[4], addr6p[5], addr6p[6], addr6p[7],
 		     &location, &prefix_len, &type, &state, &expire, &tstamp, &reachable, &gc, &refcnt,
@@ -218,31 +215,31 @@ int rprint_cache6(int ext, int numeric)
 	/* Decode the state */
 	switch (state) {
 	case NUD_NONE:
-	    strcpy(statestr, "NONE");
+	    safe_strncpy(statestr, "NONE", sizeof(statestr));
 	    break;
 	case NUD_INCOMPLETE:
-	    strcpy(statestr, "INCOMPLETE");
+	    safe_strncpy(statestr, "INCOMPLETE", sizeof(statestr));
 	    break;
 	case NUD_REACHABLE:
-	    strcpy(statestr, "REACHABLE");
+	    safe_strncpy(statestr, "REACHABLE", sizeof(statestr));
 	    break;
 	case NUD_STALE:
-	    strcpy(statestr, "STALE");
+	    safe_strncpy(statestr, "STALE", sizeof(statestr));
 	    break;
 	case NUD_DELAY:
-	    strcpy(statestr, "DELAY");
+	    safe_strncpy(statestr, "DELAY", sizeof(statestr));
 	    break;
 	case NUD_PROBE:
-	    strcpy(statestr, "PROBE");
+	    safe_strncpy(statestr, "PROBE", sizeof(statestr));
 	    break;
 	case NUD_FAILED:
-	    strcpy(statestr, "FAILED");
+	    safe_strncpy(statestr, "FAILED", sizeof(statestr));
 	    break;
 	case NUD_NOARP:
-	    strcpy(statestr, "NOARP");
+	    safe_strncpy(statestr, "NOARP", sizeof(statestr));
 	    break;
 	case NUD_PERMANENT:
-	    strcpy(statestr, "PERM");
+	    safe_strncpy(statestr, "PERM", sizeof(statestr));
 	    break;
 	default:
 	    snprintf(statestr, sizeof(statestr), "UNKNOWN(%02x)", state);
@@ -258,11 +255,11 @@ int rprint_cache6(int ext, int numeric)
 	    stale = reachable > tstamp ? reachable - tstamp : 0;
 	delete = gc > tstamp ? gc - tstamp : 0;
 	if (ext != 2) {
-	    printf(" %-9ld ", stale / HZ);
+	    printf(" %-9ld ", stale / clk_tck);
 	    if (refcnt)
 		printf(" * ");
 	    else
-		printf(" %-7ld ", delete / HZ);
+		printf(" %-7ld ", delete / clk_tck);
 	}
 	printf("\n");
     }
