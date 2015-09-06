@@ -6,7 +6,7 @@
  *              NET-3 Networking Distribution for the LINUX operating
  *              system.
  *
- * Version:     $Id: netstat.c,v 1.50 2002/12/10 00:56:41 ecki Exp $
+ * Version:     $Id: netstat.c,v 1.55 2007/12/01 19:00:40 ecki Exp $
  *
  * Authors:     Fred Baumgarten, <dc6iq@insu1.etec.uni-karlsruhe.de>
  *              Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
@@ -94,6 +94,7 @@
 #include "sockets.h"
 #include "interface.h"
 #include "util.h"
+#include "proc.h"
 
 #define PROGNAME_WIDTH 20
 
@@ -153,7 +154,7 @@ int flag_ver = 0;
 FILE *procinfo;
 
 #define INFO_GUTS1(file,name,proc)			\
-  procinfo = fopen((file), "r");			\
+  procinfo = proc_fopen((file));			\
   if (procinfo == NULL) {				\
     if (errno != ENOENT) {				\
       perror((file));					\
@@ -174,7 +175,7 @@ FILE *procinfo;
 #if HAVE_AFINET6
 #define INFO_GUTS2(file,proc)				\
   lnr = 0;						\
-  procinfo = fopen((file), "r");		       	\
+  procinfo = proc_fopen((file));		       	\
   if (procinfo != NULL) {				\
     do {						\
       if (fgets(buffer, sizeof(buffer), procinfo))	\
@@ -454,7 +455,7 @@ static int netrom_info(void)
     char buffer[256], dev[16];
     int st, vs, vr, sendq, recvq, ret;
 
-    f = fopen(_PATH_PROCNET_NR, "r");
+    f = proc_fopen(_PATH_PROCNET_NR);
     if (f == NULL) {
 	if (errno != ENOENT) {
 	    perror(_PATH_PROCNET_NR);
@@ -531,9 +532,9 @@ static void finish_this_one(int uid, unsigned long inode, const char *timers)
 
     if (flag_exp > 1) {
 	if (!(flag_not & FLAG_NUM_USER) && ((pw = getpwuid(uid)) != NULL))
-	    printf("%-10s ", pw->pw_name);
+	    printf(" %-10s ", pw->pw_name);
 	else
-	    printf("%-10d ", uid);
+	    printf(" %-10d ", uid);
 	printf("%-10lu ",inode);
     }
     if (flag_prg)
@@ -650,7 +651,7 @@ static void igmp_do_one(int lnr, const char *line)
 #if HAVE_AFX25
 static int x25_info(void)
 {
-       FILE *f=fopen(_PATH_PROCNET_X25, "r");
+       FILE *f=proc_fopen(_PATH_PROCNET_X25);
        char buffer[256],dev[16];
        int st,vs,vr,sendq,recvq,lci;
        static char *x25_state[5]=
@@ -661,7 +662,7 @@ static int x25_info(void)
                "ESTABLISHED",
                "RECOVERY"
        };
-       if(!(f=fopen(_PATH_PROCNET_X25, "r")))
+       if(!(f=proc_fopen(_PATH_PROCNET_X25)))
        {
                if (errno != ENOENT) {
                        perror(_PATH_PROCNET_X25);
@@ -821,7 +822,7 @@ static void tcp_do_one(int lnr, const char *line)
 		break;
 	    }
 	printf("%-4s  %6ld %6ld %-*s %-*s %-11s",
-	       protname, rxq, txq, max(23,strlen(local_addr)), local_addr, max(23,strlen(rem_addr)), rem_addr, _(tcp_state[state]));
+	       protname, rxq, txq, netmax(23,strlen(local_addr)), local_addr, netmax(23,strlen(rem_addr)), rem_addr, _(tcp_state[state]));
 
 	finish_this_one(uid,inode,timers);
     }
@@ -1269,7 +1270,7 @@ static int ax25_info(void)
 	N_("ESTABLISHED"),
 	N_("RECOVERY")
     };
-    if (!(f = fopen(_PATH_PROCNET_AX25, "r"))) {
+    if (!(f = proc_fopen(_PATH_PROCNET_AX25))) {
 	if (errno != ENOENT) {
 	    perror(_PATH_PROCNET_AX25);
 	    return (-1);
@@ -1363,18 +1364,37 @@ static int ipx_info(void)
     char sad[50], dad[50];
     struct sockaddr sa;
     unsigned sport = 0, dport = 0;
+    struct stat s;
+    
+    f = proc_fopen(_PATH_PROCNET_IPX_SOCKET1);
+    if (!f) {
+        if (errno != ENOENT) {
+            perror(_PATH_PROCNET_IPX_SOCKET1);
+            return (-1);
+        }
+        f = proc_fopen(_PATH_PROCNET_IPX_SOCKET2);
 
-    if (!(f = fopen(_PATH_PROCNET_IPX, "r"))) {
-	if (errno != ENOENT) {
-	    perror(_PATH_PROCNET_IPX);
-	    return (-1);
-	}
-	if (flag_arg || flag_ver)
-	    ESYSNOT("netstat", "AF IPX");
-	if (flag_arg)
-	    return (1);
-	else
-	    return (0);
+        /* We need to check for directory */
+        if (f) {
+            fstat(fileno(f), &s);
+            if (!S_ISREG(s.st_mode)) {
+                fclose(f);
+                f=NULL;
+            }
+        }
+
+        if (!f) {
+            if (errno != ENOENT) {
+	        perror(_PATH_PROCNET_IPX_SOCKET2);
+	        return (-1);
+	    }
+	    if (flag_arg || flag_ver)
+	        ESYSNOT("netstat", "AF IPX");
+	    if (flag_arg)
+	        return (1);
+ 	    else
+	        return (0);
+        }
     }
     printf(_("Active IPX sockets\nProto Recv-Q Send-Q Local Address              Foreign Address            State"));	/* xxx */
     if (flag_exp > 1)
@@ -1394,7 +1414,7 @@ static int ipx_info(void)
 	    sscanf(st, "%X", &sport);	/* net byt order */
 	    sport = ntohs(sport);
 	} else {
-	    EINTERN("netstat.c", _PATH_PROCNET_IPX " sport format error");
+	    EINTERN("netstat.c", "ipx socket format error in source port");
 	    return (-1);
 	}
 	nc = 0;
@@ -1404,7 +1424,7 @@ static int ipx_info(void)
 		sscanf(st, "%X", &dport);	/* net byt order */
 		dport = ntohs(dport);
 	    } else {
-		EINTERN("netstat.c", _PATH_PROCNET_IPX " dport format error");
+		EINTERN("netstat.c", "ipx soket format error in destination port");
 		return (-1);
 	    }
 	} else
@@ -1686,7 +1706,7 @@ int main
         flag_inet = flag_inet6 = 1;
 
     flag_arg = flag_tcp + flag_udp + flag_raw + flag_unx + flag_ipx
-	+ flag_ax25 + flag_netrom + flag_igmp + flag_x25;
+	+ flag_ax25 + flag_netrom + flag_igmp + flag_x25 + flag_rose;
 
     if (flag_mas) {
 #if HAVE_FW_MASQUERADE && HAVE_AFINET
@@ -1866,6 +1886,19 @@ int main
 	    }
 #endif
 	}
+	if (!flag_arg || flag_rose) {
+#if 0 && HAVE_AFROSE
+          i = rose_info();
+          if (i)
+            return (i);
+#else
+          if (flag_arg) {
+            i = 1;
+            ENOSUPP("netstat", "AF ROSE");
+          }
+#endif
+        }
+	            
 	if (!flag_cnt || i)
 	    break;
 	sleep(1);

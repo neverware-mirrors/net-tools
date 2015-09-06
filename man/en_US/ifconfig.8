@@ -1,4 +1,4 @@
-.TH IFCONFIG 8 "2002-07-04" "net-tools" "Linux Programmer's Manual"
+.TH IFCONFIG 8 "2007-11-07" "net-tools" "Linux Programmer's Manual"
 .SH NAME
 ifconfig \- configure a network interface
 .SH SYNOPSIS
@@ -54,7 +54,14 @@ be more verbose for some error conditions
 The name of the interface.  This is usually a driver name followed by
 a unit number, for example
 .B eth0
-for the first Ethernet interface.
+for the first Ethernet interface. If your kernel supports alias interfaces,
+you can specify them with 
+.B eth0:0
+for the first alias of eth0. You can use them to assign a second address. To
+delete an alias interface use
+.BR "ifconfig eth0:0 down" .
+Note: for every scope (i.e. same net with address/netmask combination) all
+aliases are deleted, if you delete the first (primary).
 .TP
 .B up
 This flag causes the interface to be activated.  It is implicitly
@@ -182,13 +189,15 @@ alias interfaces anymore. The statistics printed for the original address
 are shared with all alias addresses on the same device. If you want per-address
 statistics you should add explicit accounting
 rules for the address using the 
-.BR ipchains(8)
+.BR ipchains (8)
+or
+.BR iptables (8)
 command.
 .LP
-Since net-tools 1.61 ifconfig is printing byte counters with SI units. So
-1 KiB are 2^10 byte. Note, the numbers are truncated to one decimal (which can
-by quite a large error if you consider 0.1 PiB is 112.589.990.684.262
-bytes :)
+Since net-tools 1.61 ifconfig is printing byte counters and human readable
+counters with IEC 60027-2 units. So 1 KiB are 2^10 byte. Note, the numbers 
+are truncated to one decimal (which can by quite a large error if you 
+consider 0.1 PiB is 112.589.990.684.262 bytes :)
 .LP
 Interrupt problems with Ethernet device drivers fail with EAGAIN
 .I (SIOCSIIFLAGS: Resource temporarily unavailable)
@@ -205,7 +214,7 @@ for more information.
 While appletalk DDP and IPX addresses will be displayed they cannot be
 altered by this command.
 .SH SEE ALSO
-route(8), netstat(8), arp(8), rarp(8), ipchains(8)
+route(8), netstat(8), arp(8), rarp(8), ipchains(8), iptables(8)
 .br
 http://physics.nist.gov/cuu/Units/binary.html - Prefixes for binary multiples
 .SH AUTHORS
@@ -215,6 +224,6 @@ Alan Cox, <Alan.Cox@linux.org>
 .br
 Phil Blundell, <Philip.Blundell@pobox.com>
 .br
-Andi Kleen; 
+Andi Kleen
 .br
 Bernd Eckenfels, <net-tools@lina.inka.de>
