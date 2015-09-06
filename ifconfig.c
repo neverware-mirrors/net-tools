@@ -3,7 +3,7 @@
  *              that either displays or sets the characteristics of
  *              one or more of the system's networking interfaces.
  *
- * Version:     $Id: ifconfig.c,v 1.50 2001/04/13 18:25:18 pb Exp $
+ * Version:     $Id: ifconfig.c,v 1.57 2002/12/10 00:56:41 ecki Exp $
  *
  * Author:      Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
  *              and others.  Copyright 1993 MicroWalt Corporation
@@ -88,7 +88,6 @@ struct in6_ifreq {
 char *Release = RELEASE, *Version = "ifconfig 1.42 (2001-04-13)";
 
 int opt_a = 0;			/* show all interfaces          */
-int opt_i = 0;			/* show the statistics          */
 int opt_v = 0;			/* debugging output flag        */
 
 int addr_family = 0;		/* currently selected AF        */
@@ -105,7 +104,7 @@ static int if_print(char *ifname)
     int res;
 
     if (ife_short)
-	printf(_("Iface   MTU Met    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg\n"));
+	printf(_("Iface   MTU Met   RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg\n"));
 
     if (!ifname) {
 	res = for_all_interfaces(do_if_print, &opt_a);
@@ -127,7 +126,7 @@ static int set_flag(char *ifname, short flag)
 
     safe_strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
     if (ioctl(skfd, SIOCGIFFLAGS, &ifr) < 0) {
-	fprintf(stderr, _("%s: unknown interface: %s\n"), 
+	fprintf(stderr, _("%s: ERROR while getting interface flags: %s\n"), 
 		ifname,	strerror(errno));
 	return (-1);
     }
@@ -159,7 +158,7 @@ static int clr_flag(char *ifname, short flag)
 
     safe_strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
     if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
-	fprintf(stderr, _("%s: unknown interface: %s\n"), 
+	fprintf(stderr, _("%s: ERROR while getting interface flags: %s\n"), 
 		ifname, strerror(errno));
 	return -1;
     }
@@ -172,9 +171,35 @@ static int clr_flag(char *ifname, short flag)
     return (0);
 }
 
+/** test is a specified flag is set */
+static int test_flag(char *ifname, short flags)
+{
+    struct ifreq ifr;
+    int fd;
+
+    if (strchr(ifname, ':')) {
+        /* This is a v4 alias interface.  Downing it via a socket for
+	   another AF may have bad consequences. */
+        fd = get_socket_for_af(AF_INET);
+	if (fd < 0) {
+	    fprintf(stderr, _("No support for INET on this system.\n"));
+	    return -1;
+	}
+    } else
+        fd = skfd;
+
+    safe_strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+    if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
+	fprintf(stderr, _("%s: ERROR while testing interface flags: %s\n"), 
+		ifname, strerror(errno));
+	return -1;
+    }
+    return (ifr.ifr_flags & flags);
+}
+
 static void usage(void)
 {
-    fprintf(stderr, _("Usage:\n  ifconfig [-a] [-i] [-v] [-s] <interface> [[<AF>] <address>]\n"));
+    fprintf(stderr, _("Usage:\n  ifconfig [-a] [-v] [-s] <interface> [[<AF>] <address>]\n"));
 #if HAVE_AFINET
     fprintf(stderr, _("  [add <address>[/<prefixlen>]]\n"));
     fprintf(stderr, _("  [del <address>[/<prefixlen>]]\n"));
@@ -208,7 +233,7 @@ static void usage(void)
 static void version(void)
 {
     fprintf(stderr, "%s\n%s\n", Release, Version);
-    exit(0);
+    exit(E_USAGE);
 }
 
 static int set_netmask(int skfd, struct ifreq *ifr, struct sockaddr *sa)
@@ -222,18 +247,19 @@ static int set_netmask(int skfd, struct ifreq *ifr, struct sockaddr *sa)
 		strerror(errno));
 	err = 1;
     }
-    return 0;
+    return err;
 }
 
 int main(int argc, char **argv)
 {
     struct sockaddr sa;
+    struct sockaddr samask;
     struct sockaddr_in sin;
     char host[128];
     struct aftype *ap;
     struct hwtype *hw;
     struct ifreq ifr;
-    int goterr = 0, didnetmask = 0;
+    int goterr = 0, didnetmask = 0, neednetmask=0;
     char **spp;
     int fd;
 #if HAVE_AFINET6
@@ -388,6 +414,8 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(*spp, "-promisc")) {
 	    goterr |= clr_flag(ifr.ifr_name, IFF_PROMISC);
+	    if (test_flag(ifr.ifr_name, IFF_PROMISC) > 0)
+	    	fprintf(stderr, _("Warning: Interface %s still in promisc mode... maybe other application is running?\n"), ifr.ifr_name);
 	    spp++;
 	    continue;
 	}
@@ -398,6 +426,8 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(*spp, "-multicast")) {
 	    goterr |= clr_flag(ifr.ifr_name, IFF_MULTICAST);
+	    if (test_flag(ifr.ifr_name, IFF_MULTICAST) > 0)
+	    	fprintf(stderr, _("Warning: Interface %s still in MULTICAST mode.\n"), ifr.ifr_name);
 	    spp++;
 	    continue;
 	}
@@ -408,6 +438,8 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(*spp, "-allmulti")) {
 	    goterr |= clr_flag(ifr.ifr_name, IFF_ALLMULTI);
+	    if (test_flag(ifr.ifr_name, IFF_MULTICAST) > 0)
+	    	fprintf(stderr, _("Warning: Interface %s still in ALLMULTI mode.\n"), ifr.ifr_name);
 	    spp++;
 	    continue;
 	}
@@ -430,6 +462,8 @@ int main(int argc, char **argv)
 	if (!strcmp(*spp, "-dynamic")) {
 	    goterr |= clr_flag(ifr.ifr_name, IFF_DYNAMIC);
 	    spp++;
+	    if (test_flag(ifr.ifr_name, IFF_MULTICAST) > 0)
+	    	fprintf(stderr, _("Warning: Interface %s still in DYNAMIC mode.\n"), ifr.ifr_name);
 	    continue;
 	}
 #endif
@@ -486,6 +520,8 @@ int main(int argc, char **argv)
 
 	if (!strcmp(*spp, "-broadcast")) {
 	    goterr |= clr_flag(ifr.ifr_name, IFF_BROADCAST);
+	    if (test_flag(ifr.ifr_name, IFF_MULTICAST) > 0)
+	    	fprintf(stderr, _("Warning: Interface %s still in BROADCAST mode.\n"), ifr.ifr_name);
 	    spp++;
 	    continue;
 	}
@@ -493,7 +529,10 @@ int main(int argc, char **argv)
 	    if (*++spp != NULL) {
 		safe_strncpy(host, *spp, (sizeof host));
 		if (ap->input(0, host, &sa) < 0) {
-		    ap->herror(host);
+		    if (ap->herror)
+		    	ap->herror(host);
+		    else
+		    	fprintf(stderr, _("ifconfig: Error resolving '%s' for broadcast\n"), host);
 		    goterr = 1;
 		    spp++;
 		    continue;
@@ -515,7 +554,10 @@ int main(int argc, char **argv)
 		usage();
 	    safe_strncpy(host, *spp, (sizeof host));
 	    if (ap->input(0, host, &sa) < 0) {
-		ap->herror(host);
+		    if (ap->herror)
+		    	ap->herror(host);
+		    else
+		    	fprintf(stderr, _("ifconfig: Error resolving '%s' for dstaddr\n"), host);
 		goterr = 1;
 		spp++;
 		continue;
@@ -535,13 +577,16 @@ int main(int argc, char **argv)
 		usage();
 	    safe_strncpy(host, *spp, (sizeof host));
 	    if (ap->input(0, host, &sa) < 0) {
-		ap->herror(host);
+		    if (ap->herror)
+		    	ap->herror(host);
+		    else
+		    	fprintf(stderr, _("ifconfig: Error resolving '%s' for netmask\n"), host);
 		goterr = 1;
 		spp++;
 		continue;
 	    }
 	    didnetmask++;
-	    goterr = set_netmask(ap->fd, &ifr, &sa);
+	    goterr |= set_netmask(ap->fd, &ifr, &sa);
 	    spp++;
 	    continue;
 	}
@@ -613,6 +658,8 @@ int main(int argc, char **argv)
 	if (!strcmp(*spp, "-pointopoint")) {
 	    goterr |= clr_flag(ifr.ifr_name, IFF_POINTOPOINT);
 	    spp++;
+	    if (test_flag(ifr.ifr_name, IFF_MULTICAST) > 0)
+	    	fprintf(stderr, _("Warning: Interface %s still in POINTOPOINT mode.\n"), ifr.ifr_name);
 	    continue;
 	}
 	if (!strcmp(*spp, "pointopoint")) {
@@ -620,7 +667,10 @@ int main(int argc, char **argv)
 		spp++;
 		safe_strncpy(host, *spp, (sizeof host));
 		if (ap->input(0, host, &sa)) {
-		    ap->herror(host);
+		    if (ap->herror)
+		    	ap->herror(host);
+		    else
+		    	fprintf(stderr, _("ifconfig: Error resolving '%s' for pointopoint\n"), host);
 		    goterr = 1;
 		    spp++;
 		    continue;
@@ -661,8 +711,12 @@ int main(int argc, char **argv)
 	    memcpy((char *) &ifr.ifr_hwaddr, (char *) &sa,
 		   sizeof(struct sockaddr));
 	    if (ioctl(skfd, SIOCSIFHWADDR, &ifr) < 0) {
-		fprintf(stderr, "SIOCSIFHWADDR: %s\n",
-			strerror(errno));
+		if (errno == EBUSY)
+			fprintf(stderr, "SIOCSIFHWADDR: %s - you may need to down the interface\n",
+				strerror(errno));
+		else
+			fprintf(stderr, "SIOCSIFHWADDR: %s\n",
+				strerror(errno));
 		goterr = 1;
 	    }
 	    spp++;
@@ -681,12 +735,15 @@ int main(int argc, char **argv)
 			usage();
 		    *cp = 0;
 		} else {
-		    prefix_len = 0;
+		    prefix_len = 128;
 		}
 		safe_strncpy(host, *spp, (sizeof host));
 		if (inet6_aftype.input(1, host, 
 				       (struct sockaddr *) &sa6) < 0) {
-		    inet6_aftype.herror(host);
+		    if (inet6_aftype.herror)
+		    	inet6_aftype.herror(host);
+		    else
+		    	fprintf(stderr, _("ifconfig: Error resolving '%s' for add\n"), host);
 		    goterr = 1;
 		    spp++;
 		    continue;
@@ -771,7 +828,7 @@ int main(int argc, char **argv)
 			usage();
 		    *cp = 0;
 		} else {
-		    prefix_len = 0;
+		    prefix_len = 128;
 		}
 		safe_strncpy(host, *spp, (sizeof host));
 		if (inet6_aftype.input(1, host, 
@@ -800,6 +857,8 @@ int main(int argc, char **argv)
 		}
 		ifr6.ifr6_ifindex = ifr.ifr_ifindex;
 		ifr6.ifr6_prefixlen = prefix_len;
+		if (opt_v)
+			fprintf(stderr, "now deleting: ioctl(SIOCDIFADDR,{ifindex=%d,prefixlen=%ld})\n",ifr.ifr_ifindex,prefix_len);
 		if (ioctl(fd, SIOCDIFADDR, &ifr6) < 0) {
 		    fprintf(stderr, "SIOCDIFADDR: %s\n",
 			    strerror(errno));
@@ -859,7 +918,7 @@ int main(int argc, char **argv)
 		    usage();
 		*cp = 0;
 	    } else {
-		prefix_len = 0;
+		prefix_len = 128;
 	    }
 	    safe_strncpy(host, *spp, (sizeof host));
 	    if (inet6_aftype.input(1, host, (struct sockaddr *) &sa6) < 0) {
@@ -903,7 +962,7 @@ int main(int argc, char **argv)
 	/* FIXME: sa is too small for INET6 addresses, inet6 should use that too, 
 	   broadcast is unexpected */
 	if (ap->getmask) {
-	    switch (ap->getmask(host, &sa, NULL)) {
+	    switch (ap->getmask(host, &samask, NULL)) {
 	    case -1:
 		usage();
 		break;
@@ -911,8 +970,8 @@ int main(int argc, char **argv)
 		if (didnetmask)
 		    usage();
 
-		goterr = set_netmask(skfd, &ifr, &sa);
-		didnetmask++;
+		// remeber to set the netmask from samask later
+		neednetmask = 1;
 		break;
 	    }
 	}
@@ -921,9 +980,11 @@ int main(int argc, char **argv)
 	   exit(1);
 	}
 	if (ap->input(0, host, &sa) < 0) {
-	    ap->herror(host);
-	    fprintf(stderr, _("ifconfig: `--help' gives usage information.\n"));
-	    exit(1);
+	    if (ap->herror)
+	    	ap->herror(host);
+	    else
+	    	fprintf(stderr,_("ifconfig: error resolving '%s' to set address for af=%s\n"), host, ap->name); fprintf(stderr,
+	    _("ifconfig: `--help' gives usage information.\n")); exit(1);
 	}
 	memcpy((char *) &ifr.ifr_addr, (char *) &sa, sizeof(struct sockaddr));
 	{
@@ -979,6 +1040,14 @@ int main(int argc, char **argv)
 
 	spp++;
     }
+
+    if (neednetmask) {
+	goterr |= set_netmask(skfd, &ifr, &samask);
+	didnetmask++;
+    }
+
+    if (opt_v && goterr)
+    	fprintf(stderr, _("WARNING: at least one error occured. (%d)\n"), goterr);
 
     return (goterr);
 }

@@ -1,10 +1,10 @@
-.TH IFCONFIG 8 "14 August 2000" "net-tools" "Linux Programmer's Manual"
+.TH IFCONFIG 8 "2002-07-04" "net-tools" "Linux Programmer's Manual"
 .SH NAME
 ifconfig \- configure a network interface
 .SH SYNOPSIS
-.B "ifconfig [interface]"
+.B "ifconfig [-v] [-a] [-s] [interface]"
 .br
-.B "ifconfig interface [aftype] options | address ..."
+.B "ifconfig [-v] interface [aftype] options | address ..."
 .SH DESCRIPTION
 .B Ifconfig
 is used to configure the kernel-resident network interfaces.  It is
@@ -40,6 +40,15 @@ supported address families include
 .B netrom
 (AMPR Packet radio).
 .SH OPTIONS
+.TP
+.B -a
+display all interfaces which are currently available, even if down
+.TP
+.B -s
+display a short list (like netstat -i)
+.TP
+.B -v
+be more verbose for some error conditions
 .TP
 .B interface
 The name of the interface.  This is usually a driver name followed by
@@ -176,8 +185,15 @@ rules for the address using the
 .BR ipchains(8)
 command.
 .LP
-Interrupt problems with Ethernet device drivers fail with EAGAIN. See
-.I http://cesdis.gsfc.nasa.gov/linux/misc/irq-conflict.html
+Since net-tools 1.61 ifconfig is printing byte counters with SI units. So
+1 KiB are 2^10 byte. Note, the numbers are truncated to one decimal (which can
+by quite a large error if you consider 0.1 PiB is 112.589.990.684.262
+bytes :)
+.LP
+Interrupt problems with Ethernet device drivers fail with EAGAIN
+.I (SIOCSIIFLAGS: Resource temporarily unavailable)
+it is most likely a interrupt conflict. See
+.I http://www.scyld.com/expert/irq-conflict.html
 for more information.
 .SH FILES
 .I /proc/net/socket 
@@ -190,6 +206,8 @@ While appletalk DDP and IPX addresses will be displayed they cannot be
 altered by this command.
 .SH SEE ALSO
 route(8), netstat(8), arp(8), rarp(8), ipchains(8)
+.br
+http://physics.nist.gov/cuu/Units/binary.html - Prefixes for binary multiples
 .SH AUTHORS
 Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
 .br
@@ -197,4 +215,6 @@ Alan Cox, <Alan.Cox@linux.org>
 .br
 Phil Blundell, <Philip.Blundell@pobox.com>
 .br
-Andi Kleen
+Andi Kleen; 
+.br
+Bernd Eckenfels, <net-tools@lina.inka.de>
