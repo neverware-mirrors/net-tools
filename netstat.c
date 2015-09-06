@@ -6,7 +6,7 @@
  *              NET-3 Networking Distribution for the LINUX operating
  *              system.
  *
- * Version:     $Id: netstat.c,v 1.55 2007/12/01 19:00:40 ecki Exp $
+ * Version:     $Id: netstat.c,v 1.62 2008/12/02 01:53:48 ecki Exp $
  *
  * Authors:     Fred Baumgarten, <dc6iq@insu1.etec.uni-karlsruhe.de>
  *              Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
@@ -58,6 +58,7 @@
  *
  *990420 {1.38} Tuan Hoang              removed a useless assignment from igmp_do_one()
  *20010404 {1.39} Arnaldo Carvalho de Melo - use setlocale
+ *20081201 {1.42} Brian Micek           added -L|--udplite options for RFC 3828 
  *
  *              This program is free software; you can redistribute it
  *              and/or  modify it under  the terms of  the GNU General
@@ -105,6 +106,8 @@
 /* prototypes for statistics.c */
 void parsesnmp(int, int, int);
 void inittab(void);
+void parsesnmp6(int, int, int);
+void inittab6(void);
 
 typedef enum {
     SS_FREE = 0,		/* not allocated                */
@@ -123,7 +126,7 @@ typedef enum {
 #define FEATURE_NETSTAT
 #include "lib/net-features.h"
 
-char *Release = RELEASE, *Version = "netstat 1.42 (2001-04-15)", *Signature = "Fred Baumgarten, Alan Cox, Bernd Eckenfels, Phil Blundell, Tuan Hoang and others";
+char *Release = RELEASE, *Version = "netstat 1.42 (2001-04-15)", *Signature = "Fred Baumgarten, Alan Cox, Bernd Eckenfels, Phil Blundell, Tuan Hoang, Brian Micek and others";
 
 
 #define E_READ  -1
@@ -144,16 +147,18 @@ int flag_opt = 0;
 int flag_raw = 0;
 int flag_tcp = 0;
 int flag_udp = 0;
+int flag_udplite = 0;
 int flag_igmp= 0;
 int flag_rom = 0;
 int flag_exp = 1;
+int flag_wide= 0;
 int flag_prg = 0;
 int flag_arg = 0;
 int flag_ver = 0;
 
 FILE *procinfo;
 
-#define INFO_GUTS1(file,name,proc)			\
+#define INFO_GUTS1(file,name,proc,prot)			\
   procinfo = proc_fopen((file));			\
   if (procinfo == NULL) {				\
     if (errno != ENOENT) {				\
@@ -167,46 +172,46 @@ FILE *procinfo;
   } else {						\
     do {						\
       if (fgets(buffer, sizeof(buffer), procinfo))	\
-        (proc)(lnr++, buffer);				\
+        (proc)(lnr++, buffer,prot);			\
     } while (!feof(procinfo));				\
     fclose(procinfo);					\
   }
 
 #if HAVE_AFINET6
-#define INFO_GUTS2(file,proc)				\
+#define INFO_GUTS2(file,proc,prot)			\
   lnr = 0;						\
   procinfo = proc_fopen((file));		       	\
   if (procinfo != NULL) {				\
     do {						\
       if (fgets(buffer, sizeof(buffer), procinfo))	\
-	(proc)(lnr++, buffer);				\
+	(proc)(lnr++, buffer,prot);			\
     } while (!feof(procinfo));				\
     fclose(procinfo);					\
   }
 #else
-#define INFO_GUTS2(file,proc)
+#define INFO_GUTS2(file,proc,prot)
 #endif
 
 #define INFO_GUTS3					\
  return rc;
 
-#define INFO_GUTS6(file,file6,name,proc)		\
+#define INFO_GUTS6(file,file6,name,proc,prot4,prot6)	\
  char buffer[8192];					\
  int rc = 0;						\
  int lnr = 0;						\
  if (!flag_arg || flag_inet) {				\
-    INFO_GUTS1(file,name,proc)				\
+    INFO_GUTS1(file,name,proc,prot4)			\
  }							\
  if (!flag_arg || flag_inet6) {				\
-    INFO_GUTS2(file6,proc)				\
+    INFO_GUTS2(file6,proc,prot6)			\
  }							\
  INFO_GUTS3
 
-#define INFO_GUTS(file,name,proc)			\
+#define INFO_GUTS(file,name,proc,prot)			\
  char buffer[8192];					\
  int rc = 0;						\
  int lnr = 0;						\
- INFO_GUTS1(file,name,proc)				\
+ INFO_GUTS1(file,name,proc,prot)			\
  INFO_GUTS3
 
 #define PROGNAME_WIDTHs PROGNAME_WIDTH1(PROGNAME_WIDTH)
@@ -227,7 +232,7 @@ static char prg_cache_loaded = 0;
 
 #define PROGNAME_BANNER "PID/Program name"
 
-#define print_progname_banner() do { if (flag_prg) printf("%-" PROGNAME_WIDTHs "s"," " PROGNAME_BANNER); } while (0)
+#define print_progname_banner() do { if (flag_prg) printf(" %-" PROGNAME_WIDTHs "s",PROGNAME_BANNER); } while (0)
 
 #define PRG_LOCAL_ADDRESS "local_address"
 #define PRG_INODE	 "inode"
@@ -247,8 +252,6 @@ static char prg_cache_loaded = 0;
 #define PATH_PROC_X_FD      PATH_PROC "/%s/" PATH_FD_SUFF
 #define PATH_CMDLINE	"cmdline"
 #define PATH_CMDLINEl       strlen(PATH_CMDLINE)
-/* NOT working as of glibc-2.0.7: */
-#undef  DIRENT_HAVE_D_TYPE_WORKS
 
 static void prg_cache_add(unsigned long inode, char *name)
 {
@@ -360,9 +363,6 @@ static void prg_cache_load(void)
     cmdlbuf[sizeof(cmdlbuf)-1]='\0';
     if (!(dirproc=opendir(PATH_PROC))) goto fail;
     while (errno=0,direproc=readdir(dirproc)) {
-#ifdef DIRENT_HAVE_D_TYPE_WORKS
-	if (direproc->d_type!=DT_DIR) continue;
-#endif
 	for (cs=direproc->d_name;*cs;cs++)
 	    if (!isdigit(*cs)) 
 		break;
@@ -381,10 +381,9 @@ static void prg_cache_load(void)
 	line[procfdlen] = '/';
 	cmdlp = NULL;
 	while ((direfd = readdir(dirfd))) {
-#ifdef DIRENT_HAVE_D_TYPE_WORKS
-	    if (direfd->d_type!=DT_LNK) 
-		continue;
-#endif
+           /* Skip . and .. */
+           if (!isdigit(direfd->d_name[0]))
+               continue;
 	    if (procfdlen+1+strlen(direfd->d_name)+1>sizeof(line)) 
 		continue;
 	    memcpy(line + procfdlen - PATH_FD_SUFFl, PATH_FD_SUFF "/",
@@ -535,16 +534,16 @@ static void finish_this_one(int uid, unsigned long inode, const char *timers)
 	    printf(" %-10s ", pw->pw_name);
 	else
 	    printf(" %-10d ", uid);
-	printf("%-10lu ",inode);
+	printf("%-10lu",inode);
     }
     if (flag_prg)
-	printf("%-" PROGNAME_WIDTHs "s",prg_cache_get(inode));
+	printf(" %-" PROGNAME_WIDTHs "s",prg_cache_get(inode));
     if (flag_opt)
-	printf("%s", timers);
+	printf(" %s", timers);
     putchar('\n');
 }
 
-static void igmp_do_one(int lnr, const char *line)
+static void igmp_do_one(int lnr, const char *line,const char *prot)
 {
     char mcast_addr[128];
 #if HAVE_AFINET6
@@ -702,15 +701,14 @@ static int x25_info(void)
 static int igmp_info(void)
 {
     INFO_GUTS6(_PATH_PROCNET_IGMP, _PATH_PROCNET_IGMP6, "AF INET (igmp)",
-	       igmp_do_one);
+	       igmp_do_one, "igmp", "igmp6");
 }
 
-static void tcp_do_one(int lnr, const char *line)
+static void tcp_do_one(int lnr, const char *line, const char *prot)
 {
     unsigned long rxq, txq, time_len, retr, inode;
     int num, local_port, rem_port, d, state, uid, timer_run, timeout;
     char rem_addr[128], local_addr[128], timers[64], buffer[1024], more[512];
-    char *protname;
     struct aftype *ap;
 #if HAVE_AFINET6
     struct sockaddr_in6 localaddr, remaddr;
@@ -731,7 +729,6 @@ static void tcp_do_one(int lnr, const char *line)
 
     if (strlen(local_addr) > 8) {
 #if HAVE_AFINET6
-	protname = "tcp6";
 	/* Demangle what the kernel gives us */
 	sscanf(local_addr, "%08X%08X%08X%08X",
 	       &in6.s6_addr32[0], &in6.s6_addr32[1],
@@ -747,7 +744,6 @@ static void tcp_do_one(int lnr, const char *line)
 	remaddr.sin6_family = AF_INET6;
 #endif
     } else {
-	protname = "tcp";
 	sscanf(local_addr, "%X",
 	       &((struct sockaddr_in *) &localaddr)->sin_addr.s_addr);
 	sscanf(rem_addr, "%X",
@@ -765,12 +761,6 @@ static void tcp_do_one(int lnr, const char *line)
 		((struct sockaddr *) &localaddr)->sa_family);
 	return;
     }
-    if (state == TCP_LISTEN) {
-	time_len = 0;
-	retr = 0L;
-	rxq = 0L;
-	txq = 0L;
-    }
     safe_strncpy(local_addr, ap->sprint((struct sockaddr *) &localaddr, 
 					flag_not), sizeof(local_addr));
     safe_strncpy(rem_addr, ap->sprint((struct sockaddr *) &remaddr, flag_not),
@@ -780,16 +770,20 @@ static void tcp_do_one(int lnr, const char *line)
 		 get_sname(htons(local_port), "tcp",
 			   flag_not & FLAG_NUM_PORT));
 
-	if ((strlen(local_addr) + strlen(buffer)) > 22)
-	    local_addr[22 - strlen(buffer)] = '\0';
+	if (!flag_wide) {
+	    if ((strlen(local_addr) + strlen(buffer)) > 22)
+		local_addr[22 - strlen(buffer)] = '\0';
+	}
 
 	strcat(local_addr, ":");
 	strcat(local_addr, buffer);
 	snprintf(buffer, sizeof(buffer), "%s",
 		 get_sname(htons(rem_port), "tcp", flag_not & FLAG_NUM_PORT));
 
-	if ((strlen(rem_addr) + strlen(buffer)) > 22)
-	    rem_addr[22 - strlen(buffer)] = '\0';
+	if (!flag_wide) {
+	    if ((strlen(rem_addr) + strlen(buffer)) > 22)
+		rem_addr[22 - strlen(buffer)] = '\0';
+	}
 
 	strcat(rem_addr, ":");
 	strcat(rem_addr, buffer);
@@ -822,7 +816,7 @@ static void tcp_do_one(int lnr, const char *line)
 		break;
 	    }
 	printf("%-4s  %6ld %6ld %-*s %-*s %-11s",
-	       protname, rxq, txq, netmax(23,strlen(local_addr)), local_addr, netmax(23,strlen(rem_addr)), rem_addr, _(tcp_state[state]));
+	       prot, rxq, txq, netmax(23,strlen(local_addr)), local_addr, netmax(23,strlen(rem_addr)), rem_addr, _(tcp_state[state]));
 
 	finish_this_one(uid,inode,timers);
     }
@@ -831,15 +825,14 @@ static void tcp_do_one(int lnr, const char *line)
 static int tcp_info(void)
 {
     INFO_GUTS6(_PATH_PROCNET_TCP, _PATH_PROCNET_TCP6, "AF INET (tcp)",
-	       tcp_do_one);
+	       tcp_do_one, "tcp", "tcp6");
 }
 
-static void udp_do_one(int lnr, const char *line)
+static void udp_do_one(int lnr, const char *line,const char *prot)
 {
     char buffer[8192], local_addr[64], rem_addr[64];
     char *udp_state, timers[64], more[512];
     int num, local_port, rem_port, d, state, timer_run, uid, timeout;
-    char *protname;
 #if HAVE_AFINET6
     struct sockaddr_in6 localaddr, remaddr;
     char addr6[INET6_ADDRSTRLEN];
@@ -863,7 +856,6 @@ static void udp_do_one(int lnr, const char *line)
 
     if (strlen(local_addr) > 8) {
 #if HAVE_AFINET6
-	protname="udp6";
 	sscanf(local_addr, "%08X%08X%08X%08X",
 	       &in6.s6_addr32[0], &in6.s6_addr32[1],
 	       &in6.s6_addr32[2], &in6.s6_addr32[3]);
@@ -878,7 +870,6 @@ static void udp_do_one(int lnr, const char *line)
 	remaddr.sin6_family = AF_INET6;
 #endif
     } else {
-        protname="udp";
 	sscanf(local_addr, "%X",
 	       &((struct sockaddr_in *) &localaddr)->sin_addr.s_addr);
 	sscanf(rem_addr, "%X",
@@ -964,8 +955,8 @@ static void udp_do_one(int lnr, const char *line)
 			 retr, timeout);
 		break;
 	    }
-	printf("%-4s  %6ld %6ld %-23s %-23s %-11s",
-	       protname, rxq, txq, local_addr, rem_addr, udp_state);
+	printf("%-5s %6ld %6ld %-23s %-23s %-11s",
+	       prot, rxq, txq, local_addr, rem_addr, udp_state);
 
 	finish_this_one(uid,inode,timers);
     }
@@ -974,15 +965,20 @@ static void udp_do_one(int lnr, const char *line)
 static int udp_info(void)
 {
     INFO_GUTS6(_PATH_PROCNET_UDP, _PATH_PROCNET_UDP6, "AF INET (udp)",
-	       udp_do_one);
+	       udp_do_one, "upd", "udp6");
 }
 
-static void raw_do_one(int lnr, const char *line)
+static int udplite_info(void)
+{
+    INFO_GUTS6(_PATH_PROCNET_UDPLITE, _PATH_PROCNET_UDPLITE6, 
+               "AF INET (udplite)", udp_do_one, "udpl", "udpl6" );
+}
+
+static void raw_do_one(int lnr, const char *line,const char *prot)
 {
     char buffer[8192], local_addr[64], rem_addr[64];
     char timers[64], more[512];
     int num, local_port, rem_port, d, state, timer_run, uid, timeout;
-    char *protname;
 #if HAVE_AFINET6
     struct sockaddr_in6 localaddr, remaddr;
     char addr6[INET6_ADDRSTRLEN];
@@ -1005,7 +1001,6 @@ static void raw_do_one(int lnr, const char *line)
 
     if (strlen(local_addr) > 8) {
 #if HAVE_AFINET6
-	protname = "raw6";
 	sscanf(local_addr, "%08X%08X%08X%08X",
 	       &in6.s6_addr32[0], &in6.s6_addr32[1],
            &in6.s6_addr32[2], &in6.s6_addr32[3]);
@@ -1020,7 +1015,6 @@ static void raw_do_one(int lnr, const char *line)
 	remaddr.sin6_family = AF_INET6;
 #endif
     } else {
-        protname = "raw";
 	sscanf(local_addr, "%X",
 	       &((struct sockaddr_in *) &localaddr)->sin_addr.s_addr);
 	sscanf(rem_addr, "%X",
@@ -1089,7 +1083,7 @@ static void raw_do_one(int lnr, const char *line)
 		break;
 	    }
 	printf("%-4s  %6ld %6ld %-23s %-23s %-11d",
-	       protname, rxq, txq, local_addr, rem_addr, state);
+	       prot, rxq, txq, local_addr, rem_addr, state);
 
 	finish_this_one(uid,inode,timers);
     }
@@ -1098,7 +1092,7 @@ static void raw_do_one(int lnr, const char *line)
 static int raw_info(void)
 {
     INFO_GUTS6(_PATH_PROCNET_RAW, _PATH_PROCNET_RAW6, "AF INET (raw)",
-	       raw_do_one);
+	       raw_do_one, "raw", "raw6");
 }
 
 #endif
@@ -1108,7 +1102,7 @@ static int raw_info(void)
 
 #define HAS_INODE 1
 
-static void unix_do_one(int nr, const char *line)
+static void unix_do_one(int nr, const char *line, const char *prot)
 {
     static int has = 0;
     char path[MAXPATHLEN], ss_flags[32];
@@ -1222,12 +1216,13 @@ static void unix_do_one(int nr, const char *line)
     printf("%-5s %-6ld %-11s %-10s %-13s ",
 	   ss_proto, refcnt, ss_flags, ss_type, ss_state);
     if (has & HAS_INODE)
-	printf("%-8lu ",inode);
+	printf("%-8lu",inode);
     else
-	printf("-        ");
+	printf("-       ");
     if (flag_prg)
-	printf("%-" PROGNAME_WIDTHs "s",(has & HAS_INODE?prg_cache_get(inode):"-"));
-    puts(path);
+	printf(" %-" PROGNAME_WIDTHs "s",(has & HAS_INODE?prg_cache_get(inode):"-"));
+	
+    printf(" %s\n", path);
 }
 
 static int unix_info(void)
@@ -1243,12 +1238,12 @@ static int unix_info(void)
 	printf(_("(w/o servers)"));
     }
 
-    printf(_("\nProto RefCnt Flags       Type       State         I-Node"));
+    printf(_("\nProto RefCnt Flags       Type       State         I-Node  "));
     print_progname_banner();
     printf(_(" Path\n"));	/* xxx */
 
     {
-	INFO_GUTS(_PATH_PROCNET_UNIX, "AF UNIX", unix_do_one);
+	INFO_GUTS(_PATH_PROCNET_UNIX, "AF UNIX", unix_do_one, "unix");
     }
 }
 #endif
@@ -1509,9 +1504,9 @@ static void version(void)
 
 static void usage(void)
 {
-    fprintf(stderr, _("usage: netstat [-veenNcCF] [<Af>] -r         netstat {-V|--version|-h|--help}\n"));
-    fprintf(stderr, _("       netstat [-vnNcaeol] [<Socket> ...]\n"));
-    fprintf(stderr, _("       netstat { [-veenNac] -i | [-cnNe] -M | -s }\n\n"));
+    fprintf(stderr, _("usage: netstat [-vWeenNcCF] [<Af>] -r         netstat {-V|--version|-h|--help}\n"));
+    fprintf(stderr, _("       netstat [-vWnNcaeol] [<Socket> ...]\n"));
+    fprintf(stderr, _("       netstat { [-vWeenNac] -i | [-cnNe] -M | -s [-6tuw] }\n\n"));
 
     fprintf(stderr, _("        -r, --route              display routing table\n"));
     fprintf(stderr, _("        -i, --interfaces         display interface table\n"));
@@ -1521,6 +1516,7 @@ static void usage(void)
     fprintf(stderr, _("        -M, --masquerade         display masqueraded connections\n\n"));
 #endif
     fprintf(stderr, _("        -v, --verbose            be verbose\n"));
+    fprintf(stderr, _("        -W, --wide               don't truncate IP addresses\n"));
     fprintf(stderr, _("        -n, --numeric            don't resolve names\n"));
     fprintf(stderr, _("        --numeric-hosts          don't resolve host names\n"));
     fprintf(stderr, _("        --numeric-ports          don't resolve port names\n"));
@@ -1535,7 +1531,7 @@ static void usage(void)
     fprintf(stderr, _("        -F, --fib                display Forwarding Information Base (default)\n"));
     fprintf(stderr, _("        -C, --cache              display routing cache instead of FIB\n\n"));
 
-    fprintf(stderr, _("  <Socket>={-t|--tcp} {-u|--udp} {-w|--raw} {-x|--unix} --ax25 --ipx --netrom\n"));
+    fprintf(stderr, _("  <Socket>={-t|--tcp} {-u|--udp} {-U|--udplite} {-w|--raw} {-x|--unix} --ax25 --ipx --netrom\n"));
     fprintf(stderr, _("  <AF>=Use '-6|-4' or '-A <af>' or '--<af>'; default: %s\n"), DFLT_AF);
     fprintf(stderr, _("  List of possible address families (which support routing):\n"));
     print_aflist(1); /* 1 = routeable */
@@ -1560,6 +1556,7 @@ int main
 	{"protocol", 1, 0, 'A'},
 	{"tcp", 0, 0, 't'},
 	{"udp", 0, 0, 'u'},
+        {"udplite", 0, 0, 'U'},
 	{"raw", 0, 0, 'w'},
 	{"unix", 0, 0, 'x'},
 	{"listening", 0, 0, 'l'},
@@ -1570,6 +1567,7 @@ int main
 	{"programs", 0, 0, 'p'},
 	{"verbose", 0, 0, 'v'},
 	{"statistics", 0, 0, 's'},
+	{"wide", 0, 0, 'W'},
 	{"numeric", 0, 0, 'n'},
 	{"numeric-hosts", 0, 0, '!'},
 	{"numeric-ports", 0, 0, '@'},
@@ -1589,7 +1587,7 @@ int main
     getroute_init();		/* Set up AF routing support */
 
     afname[0] = '\0';
-    while ((i = getopt_long(argc, argv, "MCFA:acdegphinNorstuVv?wxl64", longopts, &lop)) != EOF)
+    while ((i = getopt_long(argc, argv, "A:CFMacdeghilnNoprstuUvVWwx64?", longopts, &lop)) != EOF)
 	switch (i) {
 	case -1:
 	    break;
@@ -1633,6 +1631,9 @@ int main
 	case 'i':
 	    flag_int++;
 	    break;
+	case 'W':
+	    flag_wide++;
+	    break;
 	case 'n':
 	    flag_not |= FLAG_NUM;
 	    break;
@@ -1674,13 +1675,14 @@ int main
 	case 'r':
 	    flag_rou++;
 	    break;
-
 	case 't':
 	    flag_tcp++;
 	    break;
-
 	case 'u':
 	    flag_udp++;
+	    break;
+        case 'U':
+	    flag_udplite++;
 	    break;
 	case 'w':
 	    flag_raw++;
@@ -1699,14 +1701,16 @@ int main
     if (flag_int + flag_rou + flag_mas + flag_sta > 1)
 	usage();
 
-    if ((flag_inet || flag_inet6 || flag_sta) && !(flag_tcp || flag_udp || flag_raw))
-	flag_tcp = flag_udp = flag_raw = 1;
+    if ((flag_inet || flag_inet6 || flag_sta) && 
+        !(flag_tcp || flag_udp || flag_udplite || flag_raw))
+	   flag_tcp = flag_udp = flag_udplite = flag_raw = 1;
 
-    if ((flag_tcp || flag_udp || flag_raw || flag_igmp) && !(flag_inet || flag_inet6))
+    if ((flag_tcp || flag_udp || flag_udplite || flag_raw || flag_igmp) && 
+        !(flag_inet || flag_inet6))
         flag_inet = flag_inet6 = 1;
 
-    flag_arg = flag_tcp + flag_udp + flag_raw + flag_unx + flag_ipx
-	+ flag_ax25 + flag_netrom + flag_igmp + flag_x25 + flag_rose;
+    flag_arg = flag_tcp + flag_udplite + flag_udp + flag_raw + flag_unx 
+        + flag_ipx + flag_ax25 + flag_netrom + flag_igmp + flag_x25 + flag_rose;
 
     if (flag_mas) {
 #if HAVE_FW_MASQUERADE && HAVE_AFINET
@@ -1722,16 +1726,35 @@ int main
 	    sleep(1);
 	}
 #else
-	ENOSUPP("netstat.c", "FW_MASQUERADE");
+	ENOSUPP("netstat", "FW_MASQUERADE");
 	i = -1;
 #endif
 	return (i);
     }
 
     if (flag_sta) {
-        inittab();
-	parsesnmp(flag_raw, flag_tcp, flag_udp);
-	exit(0);
+        if (!afname[0])
+            strcpy(afname, DFLT_AF);
+            
+        if (!strcmp(afname, "inet")) {
+#if HAVE_AFINET
+            inittab();
+            parsesnmp(flag_raw, flag_tcp, flag_udp);
+#else
+            ENOSUPP("netstat", "AF INET");
+#endif
+        } else if(!strcmp(afname, "inet6")) {
+#if HAVE_AFINET6
+            inittab6();
+            parsesnmp6(flag_raw, flag_tcp, flag_udp);
+#else
+            ENOSUPP("netstat", "AF INET6");
+#endif
+        } else {
+          printf(_("netstat: No statistics support for specified address family: %s\n"), afname);
+          exit(1);
+        }
+        exit(0);
     }
     
     if (flag_rou) {
@@ -1767,7 +1790,7 @@ int main
 	return (i);
     }
     for (;;) {
-	if (!flag_arg || flag_tcp || flag_udp || flag_raw) {
+	if (!flag_arg || flag_tcp || flag_udp || flag_udplite || flag_raw) {
 #if HAVE_AFINET
 	    prg_cache_load();
 	    printf(_("Active Internet connections "));	/* xxx */
@@ -1800,11 +1823,19 @@ int main
 	    if (i)
 		return (i);
 	}
+
 	if (!flag_arg || flag_udp) {
 	    i = udp_info();
 	    if (i)
 		return (i);
 	}
+
+	if (!flag_arg || flag_udplite) {
+	    i = udplite_info();
+	    if (i)
+		return (i);
+	}
+
 	if (!flag_arg || flag_raw) {
 	    i = raw_info();
 	    if (i)

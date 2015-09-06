@@ -83,7 +83,7 @@ bool '(Cisco)-HDLC/LAPB support' HAVE_HWHDLCLAPB y
 bool 'IrDA support' HAVE_HWIRDA y
 bool 'Econet hardware support' HAVE_HWEC y
 bool 'Generic EUI-64 hardware support' HAVE_HWEUI64 y
-
+bool 'InfiniBand hardware support' HAVE_HWIB y
 *
 *
 *           Other Features.
