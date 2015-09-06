@@ -1,4 +1,4 @@
-net-tools (1.60-27) UNRELEASED; urgency=medium
+net-tools (1.60-27) unstable; urgency=medium
 
   * Add patch to accept "pointtopoint" as a synonym for "pointopoint".
     Closes: #443075.
@@ -13,7 +13,7 @@ net-tools (1.60-27) UNRELEASED; urgency=medium
   * Update build system to debhelper 9 and 3.0 source format.
   * Update ancient Standards-Version, no changes needed.
 
- -- Martín Ferrari <tincho@debian.org>  Tue, 20 May 2014 14:49:31 +0200
+ -- Martín Ferrari <tincho@debian.org>  Sun, 06 Sep 2015 17:44:11 +0300
 
 net-tools (1.60-26) unstable; urgency=low
 
