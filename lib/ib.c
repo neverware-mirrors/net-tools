@@ -36,7 +36,7 @@ extern struct hwtype ib_hwtype;
 
 
 /* Display an InfiniBand address in readable format. */
-static char *pr_ib(unsigned char *ptr)
+static const char *pr_ib(const char *ptr)
 {
     static char buff[128];
     char *pos;
@@ -47,7 +47,7 @@ static char *pr_ib(unsigned char *ptr)
 	pos += sprintf(pos, "%02X:", (*ptr++ & 0377));
     }
     buff[strlen(buff) - 1] = '\0';
-
+    fprintf(stderr, _("Infiniband hardware address can be incorrect! Please read BUGS section in ifconfig(8).\n"));
     /* snprintf(buff, sizeof(buff), "%02X:%02X:%02X:%02X:%02X:%02X",
 	     (ptr[0] & 0377), (ptr[1] & 0377), (ptr[2] & 0377),
 	     (ptr[3] & 0377), (ptr[4] & 0377), (ptr[5] & 0377)
@@ -56,11 +56,16 @@ static char *pr_ib(unsigned char *ptr)
     return (buff);
 }
 
+#ifdef DEBUG
+#define _DEBUG 1
+#else
+#define _DEBUG 0
+#endif
 
 /* Input an Infiniband address and convert to binary. */
 static int in_ib(char *bufp, struct sockaddr *sap)
 {
-    unsigned char *ptr;
+    char *ptr;
     char c, *orig;
     int i;
     unsigned val;
@@ -80,9 +85,8 @@ static int in_ib(char *bufp, struct sockaddr *sap)
 	else if (c >= 'A' && c <= 'F')
 	    val = c - 'A' + 10;
 	else {
-#ifdef DEBUG
-	    fprintf(stderr, _("in_ib(%s): invalid infiniband address!\n"), orig);
-#endif
+	    if (_DEBUG)
+		fprintf(stderr, _("in_ib(%s): invalid infiniband address!\n"), orig);
 	    errno = EINVAL;
 	    return (-1);
 	}

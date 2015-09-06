@@ -1,8 +1,8 @@
 /*
- * lib/pathnames.h    This file contains the definitions of the path 
+ * lib/pathnames.h    This file contains the definitions of the path
  *                      names used by the NET-LIB.
  *
- * NET-LIB      
+ * NET-LIB
  *
  * Version:     lib/pathnames.h 1.37 (1997-08-23)
  *
@@ -18,6 +18,10 @@
 #define _PATH_PROCNET_UDP6		"/proc/net/udp6"
 #define _PATH_PROCNET_UDPLITE           "/proc/net/udplite"
 #define _PATH_PROCNET_UDPLITE6          "/proc/net/udplite6"
+#define _PATH_PROCNET_SCTPEPTS		"/proc/net/sctp/eps"
+#define _PATH_PROCNET_SCTP6EPTS		"/proc/net/sctp6/eps"
+#define _PATH_PROCNET_SCTPASSOCS	"/proc/net/sctp/assocs"
+#define _PATH_PROCNET_SCTP6ASSOCS	"/proc/net/sctp6/assocs"
 #define _PATH_PROCNET_RAW		"/proc/net/raw"
 #define _PATH_PROCNET_RAW6		"/proc/net/raw6"
 #define _PATH_PROCNET_UNIX		"/proc/net/unix"
@@ -45,10 +49,12 @@
 #define _PATH_PROCNET_RARP		"/proc/net/rarp"
 #define _PATH_ETHERS			"/etc/ethers"
 #define _PATH_PROCNET_ROSE_ROUTE	"/proc/net/rose_routes"
-#define _PATH_PROCNET_X25              "/proc/net/x25"
-#define _PATH_PROCNET_X25_ROUTE                "/proc/net/x25_routes"
+#define _PATH_PROCNET_X25		"/proc/net/x25"
+#define _PATH_PROCNET_X25_ROUTE		"/proc/net/x25/route"
 #define _PATH_PROCNET_DEV_MCAST		"/proc/net/dev_mcast"
 #define _PATH_PROCNET_ATALK_ROUTE	"/proc/net/atalk_route"
+#define _PATH_SYS_BLUETOOTH_L2CAP	"/sys/kernel/debug/bluetooth/l2cap"
+#define _PATH_SYS_BLUETOOTH_RFCOMM	"/sys/kernel/debug/bluetooth/rfcomm"
 
 /* pathname for the netlink device */
 #define _PATH_DEV_ROUTE	"/dev/route"

@@ -34,6 +34,7 @@
 #include "net-support.h"
 #include "pathnames.h"
 #include "intl.h"
+#include "util.h"
 
 #ifndef _NETROSE_ROSE_H
 #include <linux/ax25.h>
@@ -53,8 +54,8 @@ static char ROSE_errmsg[128];
 
 extern struct aftype rose_aftype;
 
-static char *
- ROSE_print(unsigned char *ptr)
+static const char *
+ ROSE_print(const char *ptr)
 {
     static char buff[12];
 
@@ -64,15 +65,14 @@ static char *
 }
 
 /* Display a ROSE socket address. */
-static char *
- ROSE_sprint(struct sockaddr *sap, int numeric)
+static const char *
+ ROSE_sprint(const struct sockaddr *sap, int numeric)
 {
     if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
 	return _("[NONE SET]");
 
     return (ROSE_print(((struct sockaddr_rose *) sap)->srose_addr.rose_addr));
 }
-
 
 static int ROSE_input(int type, char *bufp, struct sockaddr *sap)
 {
@@ -84,10 +84,7 @@ static int ROSE_input(int type, char *bufp, struct sockaddr *sap)
 
     /* Node address the correct length ? */
     if (strlen(bufp) != 10) {
-	strcpy(ROSE_errmsg, _("Node address must be ten digits"));
-#ifdef DEBUG
-	fprintf(stderr, "rose_input(%s): %s !\n", ROSE_errmsg, orig);
-#endif
+	safe_strncpy(ROSE_errmsg, _("Node address must be ten digits"), sizeof(ROSE_errmsg));
 	errno = EINVAL;
 	return (-1);
     }
@@ -98,19 +95,12 @@ static int ROSE_input(int type, char *bufp, struct sockaddr *sap)
     }
 
     /* All done. */
-#ifdef DEBUG
-    fprintf(stderr, "rose_input(%s): ", orig);
-    for (i = 0; i < sizeof(rose_address); i++)
-	fprintf(stderr, "%02X ", sap->sa_data[i] & 0377);
-    fprintf(stderr, "\n");
-#endif
-
     return (0);
 }
 
 
 /* Display an error message. */
-static void ROSE_herror(char *text)
+static void ROSE_herror(const char *text)
 {
     if (text == NULL)
 	fprintf(stderr, "%s\n", ROSE_errmsg);

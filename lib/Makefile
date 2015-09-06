@@ -36,7 +36,7 @@ OBJS	= $(sort $(VARIA) $(AFOBJS) $(HWOBJS) \
 
 # This can be overwritten by the TOPLEVEL Makefile
 TOPDIR=..
-CFLAGS += -I$(TOPDIR) -idirafter $(TOPDIR)/include # -fPIC
+CFLAGS += -I$(TOPDIR) -I$(TOPDIR)/include # -fPIC
 SONAME=libnet-tools.so.0
 
 .SUFFIXES: .a .so
@@ -45,14 +45,14 @@ all:	lib$(NET_LIB_NAME).a # lib$(NET_LIB_NAME).so
 
 lib$(NET_LIB_NAME).a:	Makefile $(TOPDIR)/config.h $(OBJS)
 			@echo Building $@
-			@rm -f $@
+			@rm -f -- $@
 			@$(AR) rcs $@ $(OBJS)
 
 .a.so:;
 	$(CC) -o $@ -shared -Wl,--whole-archive -Wl,--soname -Wl,$(SONAME) -nostdlib -nostartfiles $<
 
 clean:
-		rm -f *.o *~ *.orig lib$(NET_LIB_NAME).a lib$(NET_LIB_NAME).so
+		rm -f -- *.o *~ *.orig lib$(NET_LIB_NAME).a lib$(NET_LIB_NAME).so
 
 clobber:	clean
 
