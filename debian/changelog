@@ -1,3 +1,10 @@
+net-tools (1.60+git20150829.73cef8a-2) UNRELEASED; urgency=medium
+
+  [ Laurent Bigonville ]
+  * Enable SELinux support. Closes: #666204.
+
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 07 Sep 2015 14:47:41 +0200
+
 net-tools (1.60+git20150829.73cef8a-1) unstable; urgency=medium
 
   * After 14 years without an upstream release, I am producing a new package
