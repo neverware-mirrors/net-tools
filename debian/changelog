@@ -1,10 +1,12 @@
-net-tools (1.60+git20081202.2750e60-1) UNRELEASED; urgency=medium
+net-tools (1.60+git20150829.73cef8a-1) unstable; urgency=medium
 
-  * Update package to a newer commit, even if upstream is not releasing new
-    versions. Closes: #391495, #486448, #323261, #260587, #545328, #511395.
-  * Remove many patches now merged upstream, update the rest.
+  * After 14 years without an upstream release, I am producing a new package
+    based on today's upstream repository.
+    Closes: #391495, #486448, #323261, #260587, #545328, #511395.
+  * Remove many patches now merged upstream, delete unmaintainable and
+    undocumented local changes, and update the rest.
 
- -- Martín Ferrari <tincho@debian.org>  Sun, 06 Sep 2015 19:19:52 +0000
+ -- Martín Ferrari <tincho@debian.org>  Mon, 07 Sep 2015 01:54:07 +0000
 
 net-tools (1.60-27) unstable; urgency=medium
 
