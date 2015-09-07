@@ -1,7 +1,7 @@
 net-tools (1.60+git20081202.2750e60-1) UNRELEASED; urgency=medium
 
   * Update package to a newer commit, even if upstream is not releasing new
-    versions. Closes: #391495, #486448, #323261, #260587.
+    versions. Closes: #391495, #486448, #323261, #260587, #545328, #511395.
   * Remove many patches now merged upstream, update the rest.
 
  -- Martín Ferrari <tincho@debian.org>  Sun, 06 Sep 2015 19:19:52 +0000
