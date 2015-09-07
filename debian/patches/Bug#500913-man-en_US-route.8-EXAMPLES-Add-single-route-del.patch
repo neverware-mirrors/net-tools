@@ -4,7 +4,7 @@ Bug-Debian: http://bugs.debian.org/500913
  
 --- a/man/en_US/route.8
 +++ b/man/en_US/route.8
-@@ -195,6 +195,12 @@
+@@ -205,6 +205,12 @@
  in the destination field of the current routing table.
  
  .TP
@@ -14,6 +14,6 @@ Bug-Debian: http://bugs.debian.org/500913
 +same as as seen in 'route -n' listing.
 +
 +.TP
- .B route add default gw mango\-gw
+ .B route add default gw mango 
  adds a default route (which will be used if no other route matches).
- All packets using this route will be gatewayed through "mango\-gw". The
+ All packets using this route will be gatewayed through the address of a node

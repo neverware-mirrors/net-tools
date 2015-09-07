@@ -4,7 +4,7 @@ Bug-Debian: http://bugs.debian.org/443075
 
 --- a/ifconfig.c
 +++ b/ifconfig.c
-@@ -658,14 +658,14 @@
+@@ -643,14 +643,14 @@
  	    spp++;
  	    continue;
  	}
@@ -12,7 +12,7 @@ Bug-Debian: http://bugs.debian.org/443075
 +	if (!strcmp(*spp, "-pointopoint") || !strcmp(*spp, "-pointtopoint")) {
  	    goterr |= clr_flag(ifr.ifr_name, IFF_POINTOPOINT);
  	    spp++;
- 	    if (test_flag(ifr.ifr_name, IFF_MULTICAST) > 0)
+ 	    if (test_flag(ifr.ifr_name, IFF_POINTOPOINT) > 0)
  	    	fprintf(stderr, _("Warning: Interface %s still in POINTOPOINT mode.\n"), ifr.ifr_name);
  	    continue;
  	}
