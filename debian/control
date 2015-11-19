@@ -11,6 +11,7 @@ Vcs-Browser: https://anonscm.debian.org/cgit/pkg-net-tools/pkg-net-tools.git
 
 Package: net-tools
 Architecture: any
+Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Replaces: netbase (<< 4.00), ja-trans (<= 0.8-2)
 Conflicts: ja-trans (<= 0.8-2)
