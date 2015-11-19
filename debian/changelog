@@ -6,6 +6,8 @@ net-tools (1.60+git20150829.73cef8a-2) UNRELEASED; urgency=medium
   [ Martín Ferrari ]
   * Mark the package "Multi-Arch: foreign", thanks to Frédéric Brière
     <fbriere@fbriere.net>. Closes: #752584.
+  * Fix bug in Portuguese man page, thanks to julianofischer@gmail.com.
+    Closes: #805377.
 
  -- Laurent Bigonville <bigon@debian.org>  Mon, 07 Sep 2015 14:47:41 +0200
 
