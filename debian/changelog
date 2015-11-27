@@ -1,3 +1,10 @@
+net-tools (1.60+git20151124.452f8e2-1) UNRELEASED; urgency=medium
+
+  * New upstream snapshot.
+  * Re-synced translations.patch.
+
+ -- Martín Ferrari <tincho@debian.org>  Thu, 26 Nov 2015 21:34:48 -0300
+
 net-tools (1.60+git20150829.73cef8a-2) unstable; urgency=medium
 
   [ Laurent Bigonville ]
