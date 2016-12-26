@@ -1,4 +1,4 @@
-net-tools (1.60+git20161116.90da8a0-1) UNRELEASED; urgency=medium
+net-tools (1.60+git20161116.90da8a0-1) unstable; urgency=medium
 
   * New upstream snapshot.
   * Re-synced translations.patch.
@@ -12,7 +12,7 @@ net-tools (1.60+git20161116.90da8a0-1) UNRELEASED; urgency=medium
     changes.  Closes: #845153, #843892, #820212.
   * Update Standards-Version, with no changes.
 
- -- Martín Ferrari <tincho@debian.org>  Mon, 26 Dec 2016 02:08:18 -0300
+ -- Martín Ferrari <tincho@debian.org>  Mon, 26 Dec 2016 05:58:42 +0000
 
 net-tools (1.60+git20150829.73cef8a-2.2) unstable; urgency=medium
 
