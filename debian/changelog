@@ -10,6 +10,7 @@ net-tools (1.60+git20161116.90da8a0-1) UNRELEASED; urgency=medium
   * Add debian/NEWS warning about changing output in net-tools commands.
     Closing bugs that reported problems in 3rd-party scripts arising from these
     changes.  Closes: #845153, #843892, #820212.
+  * Update Standards-Version, with no changes.
 
  -- Martín Ferrari <tincho@debian.org>  Mon, 26 Dec 2016 02:08:18 -0300
 
