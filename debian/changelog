@@ -4,6 +4,9 @@ net-tools (1.60+git20161116.90da8a0-1) UNRELEASED; urgency=medium
   * Re-synced translations.patch.
   * Acknowledge NMUs. Thanks a lot to Andrey Rahmatullin for the
     fixes and uploads. Closes: 846509.
+  * Fix FTCBFS, thanks to Helmut Grohne for the patch. Closes: #811561.
+    + Really assign CC for cross compilation.
+    + Use triplet prefixed pkg-config.
 
  -- Martín Ferrari <tincho@debian.org>  Mon, 26 Dec 2016 02:08:18 -0300
 
