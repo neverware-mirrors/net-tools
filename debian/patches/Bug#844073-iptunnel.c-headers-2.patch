@@ -1,0 +1,21 @@
+Desription: iptunnel: fix building w/older linux headers
+Origin: upstream, https://sourceforge.net/p/net-tools/code/ci/ea3935bd7c0f36c86c40e5785326698fa3336c6a
+Bug-Gentoo: https://bugs.gentoo.org/599542
+Applied-Upstream: yes
+Last-Update: 2016-12-01
+
+--- a/iptunnel.c
++++ b/iptunnel.c
+@@ -29,7 +29,12 @@
+ #include <arpa/inet.h>
+ #include <net/if.h>
+ #include <net/if_arp.h>
++/* We only care about linux/if_tunnel.h.  Unfortunately, older Linux headers
++ * (pre linux-4.8) did not include all the proper headers leading to missing
++ * structs and types.
++ */
+ #include <linux/types.h>
++#include <linux/ip.h>
+ #include <linux/if_tunnel.h>
+ 
+ #include "config.h"

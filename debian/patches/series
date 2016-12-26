@@ -4,3 +4,5 @@ translations.patch
 Add_missing_headers.patch
 Bug#443075-ifconfig.c-pointtopoint_spelling.patch
 Bug#500913-man-en_US-route.8-EXAMPLES-Add-single-route-del.patch
+Bug#844073-iptunnel.c-headers.patch
+Bug#844073-iptunnel.c-headers-2.patch
