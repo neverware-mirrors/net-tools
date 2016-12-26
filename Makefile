@@ -33,14 +33,26 @@ SBINDIR ?= /sbin
 NET_LIB_PATH = lib
 NET_LIB_NAME = net-tools
 
-PROGS	:= ifconfig hostname arp netstat route rarp slattach plipconfig nameif
+PROGS	:= ifconfig netstat route nameif
 
 -include config.make
+ifeq ($(HAVE_ARP_TOOLS),1)
+PROGS	+= arp rarp
+endif
+ifeq ($(HAVE_HOSTNAME_TOOLS),1)
+PROGS	+= hostname
+endif
 ifeq ($(HAVE_IP_TOOLS),1)
 PROGS   += iptunnel ipmaddr
 endif
 ifeq ($(HAVE_MII),1)
 PROGS	+= mii-tool
+endif
+ifeq ($(HAVE_PLIP_TOOLS),1)
+PROGS	+= plipconfig
+endif
+ifeq ($(HAVE_SERIAL_TOOLS),1)
+PROGS	+= slattach
 endif
 
 # Compiler and Linker Options
@@ -158,40 +170,40 @@ subdirs:	libdir
 		@for i in $(SUBDIRS:$(NET_LIB_PATH)/=); do $(MAKE) -C $$i || exit $$? ; done
 
 ifconfig:	$(NET_LIB) ifconfig.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ ifconfig.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ ifconfig.o $(NLIB) $(LDLIBS)
 
 nameif:		$(NET_LIB) nameif.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ nameif.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ nameif.o $(NLIB) $(LDLIBS)
 
 hostname:	hostname.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ hostname.o $(DNLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ hostname.o $(DNLIB) $(LDLIBS)
 
 route:		$(NET_LIB) route.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ route.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ route.o $(NLIB) $(LDLIBS)
 
 arp:		$(NET_LIB) arp.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ arp.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ arp.o $(NLIB) $(LDLIBS)
 
 rarp:		$(NET_LIB) rarp.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ rarp.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ rarp.o $(NLIB) $(LDLIBS)
 
 slattach:	$(NET_LIB) slattach.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ slattach.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ slattach.o $(NLIB) $(LDLIBS)
 
 plipconfig:	$(NET_LIB) plipconfig.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ plipconfig.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ plipconfig.o $(NLIB) $(LDLIBS)
 
 netstat:	$(NET_LIB) netstat.o statistics.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ netstat.o statistics.o $(NLIB) $(SELIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ netstat.o statistics.o $(NLIB) $(SELIB) $(LDLIBS)
 
 iptunnel:	$(NET_LIB) iptunnel.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ iptunnel.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ iptunnel.o $(NLIB) $(LDLIBS)
 
 ipmaddr:	$(NET_LIB) ipmaddr.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ ipmaddr.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ ipmaddr.o $(NLIB) $(LDLIBS)
 
 mii-tool:	$(NET_LIB) mii-tool.o
-		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ mii-tool.o $(NLIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) -o $@ mii-tool.o $(NLIB) $(LDLIBS)
 
 installbin:
 	@echo
@@ -201,15 +213,26 @@ installbin:
 	@echo
 	install -m 0755 -d ${BASEDIR}${SBINDIR}
 	install -m 0755 -d ${BASEDIR}${BINDIR}
-	install -m 0755 arp        ${BASEDIR}${SBINDIR}
-	install -m 0755 hostname   ${BASEDIR}${BINDIR}
 	install -m 0755 ifconfig   ${BASEDIR}${BINDIR}
 	install -m 0755 nameif     ${BASEDIR}${SBINDIR}
 	install -m 0755 netstat    ${BASEDIR}${BINDIR}
-	install -m 0755 plipconfig $(BASEDIR)${SBINDIR}
-	install -m 0755 rarp       ${BASEDIR}${SBINDIR}
 	install -m 0755 route      ${BASEDIR}${BINDIR}
-	install -m 0755 slattach   $(BASEDIR)${SBINDIR}
+ifeq ($(HAVE_ARP_TOOLS),1)
+	install -m 0755 arp        ${BASEDIR}${SBINDIR}
+	install -m 0755 rarp       ${BASEDIR}${SBINDIR}
+endif
+ifeq ($(HAVE_HOSTNAME_TOOLS),1)
+	install -m 0755 hostname   ${BASEDIR}${BINDIR}
+	ln -fs hostname $(BASEDIR)${BINDIR}/dnsdomainname
+ifeq ($(HAVE_HOSTNAME_SYMLINKS),1)
+	ln -fs hostname $(BASEDIR)${BINDIR}/ypdomainname
+	ln -fs hostname $(BASEDIR)${BINDIR}/nisdomainname
+	ln -fs hostname $(BASEDIR)${BINDIR}/domainname
+endif
+ifeq ($(HAVE_AFDECnet),1)
+	ln -fs hostname $(BASEDIR)${BINDIR}/nodename
+endif
+endif
 ifeq ($(HAVE_IP_TOOLS),1)
 	install -m 0755 ipmaddr    $(BASEDIR)${SBINDIR}
 	install -m 0755 iptunnel   $(BASEDIR)${SBINDIR}
@@ -217,12 +240,11 @@ endif
 ifeq ($(HAVE_MII),1)
 	install -m 0755 mii-tool   $(BASEDIR)${SBINDIR}
 endif
-	ln -fs hostname $(BASEDIR)${BINDIR}/dnsdomainname
-	ln -fs hostname $(BASEDIR)${BINDIR}/ypdomainname
-	ln -fs hostname $(BASEDIR)${BINDIR}/nisdomainname
-	ln -fs hostname $(BASEDIR)${BINDIR}/domainname
-ifeq ($(HAVE_AFDECnet),1)
-	ln -fs hostname $(BASEDIR)${BINDIR}/nodename
+ifeq ($(HAVE_PLIP_TOOLS),1)
+	install -m 0755 plipconfig $(BASEDIR)${SBINDIR}
+endif
+ifeq ($(HAVE_SERIAL_TOOLS),1)
+	install -m 0755 slattach   $(BASEDIR)${SBINDIR}
 endif
 
 savebin:
