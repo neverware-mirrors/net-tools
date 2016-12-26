@@ -1,11 +1,11 @@
-net-tools (1.60+git20151124.452f8e2-1) UNRELEASED; urgency=medium
+net-tools (1.60+git20161116.90da8a0-1) UNRELEASED; urgency=medium
 
   * New upstream snapshot.
   * Re-synced translations.patch.
-  * Incorporate changed from NMUs. Thanks a lot to Andrey Rahmatullin for the
+  * Acknowledge NMUs. Thanks a lot to Andrey Rahmatullin for the
     fixes and uploads. Closes: 846509.
 
- -- Martín Ferrari <tincho@debian.org>  Thu, 26 Nov 2015 21:34:48 -0300
+ -- Martín Ferrari <tincho@debian.org>  Mon, 26 Dec 2016 02:08:18 -0300
 
 net-tools (1.60+git20150829.73cef8a-2.2) unstable; urgency=medium
 

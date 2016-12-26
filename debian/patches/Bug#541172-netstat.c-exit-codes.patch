@@ -1,6 +1,6 @@
 --- a/netstat.c
 +++ b/netstat.c
-@@ -2187,12 +2187,14 @@
+@@ -2236,12 +2236,14 @@
              parsesnmp(flag_raw, flag_tcp, flag_udp, flag_sctp);
  #else
              ENOSUPP("netstat", "AF INET");
