@@ -1,3 +1,4 @@
+man-fr_FR-route.8.patch
 Bug#805377-man-pt_BR-ifconfig.8.patch
 Bug#541172-netstat.c-exit-codes.patch
 translations.patch
