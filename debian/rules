@@ -24,6 +24,7 @@ PROGS    = ifconfig arp netstat route rarp slattach plipconfig \
     nameif iptunnel ipmaddr mii-tool
 MANPAGES = arp.8 ethers.5 ifconfig.8 mii-tool.8 nameif.8 netstat.8 \
 	   plipconfig.8 rarp.8 route.8 slattach.8
+DEB_MANPAGES = iptunnel.8
 
 %:
 	dh $@
@@ -55,6 +56,8 @@ override_dh_auto_install:
 		$(wildcard $(addprefix man/fr_FR/,$(MANPAGES)))
 	dh_installman --language=pt_BR \
 		$(wildcard $(addprefix man/pt_BR/,$(MANPAGES)))
+	dh_installman --language=C \
+		$(wildcard $(addprefix debian/,$(DEB_MANPAGES)))
 
 DEBVERS    ?= $(shell dpkg-parsechangelog | sed -n -e 's/^Version: //p')
 VERSION    ?= $(shell echo '$(DEBVERS)' | sed 's/^[[:digit:]]*://; s/[-].*//')
