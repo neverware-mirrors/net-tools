@@ -1,4 +1,4 @@
-net-tools (1.60+git20161116.90da8a0-2) UNRELEASED; urgency=medium
+net-tools (1.60+git20161116.90da8a0-2) unstable; urgency=medium
 
   * Fix typo in French manpage. Thanks to  Michel Grigaut for the patch.
   * Add manpage for iptunnel, thanks to Sergio Durigan Junior.
@@ -7,7 +7,7 @@ net-tools (1.60+git20161116.90da8a0-2) UNRELEASED; urgency=medium
   * Automated cme fixes; packaging improvements.
   * Remove unused and ancient patch.
 
- -- Martín Ferrari <tincho@debian.org>  Sun, 11 Feb 2018 17:22:38 +0000
+ -- Martín Ferrari <tincho@debian.org>  Sun, 11 Feb 2018 17:29:24 +0000
 
 net-tools (1.60+git20161116.90da8a0-1) unstable; urgency=medium
 
