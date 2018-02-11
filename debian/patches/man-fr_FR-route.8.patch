@@ -1,3 +1,4 @@
+Description: Fix man/fr_FR/route.8
 --- a/man/fr_FR/route.8
 +++ b/man/fr_FR/route.8
 @@ -179,7 +179,7 @@

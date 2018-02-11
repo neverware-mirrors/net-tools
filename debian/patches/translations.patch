@@ -1,8 +1,5 @@
-Random changed found in diff.gz, synchronized the best I could with new
-upstream code
-
-diff --git a/po/de.po b/po/de.po
-index 8b6e4f3..8c53e51 100644
+Description: Random changed found in diff.gz, synchronized the best I could
+ with new upstream code
 --- a/po/de.po
 +++ b/po/de.po
 @@ -4,61 +4,67 @@
