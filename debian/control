@@ -17,8 +17,6 @@ Architecture: any
 Multi-Arch: foreign
 Depends: ${misc:Depends},
          ${shlibs:Depends},
-Conflicts: ja-trans (<= 0.8-2),
-Replaces: ja-trans (<= 0.8-2),
 Description: NET-3 networking toolkit
  This package includes the important tools for controlling the network
  subsystem of the Linux kernel.  This includes arp, ifconfig, netstat,
