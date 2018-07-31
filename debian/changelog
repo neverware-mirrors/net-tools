@@ -1,3 +1,11 @@
+net-tools (1.60+git20161116.90da8a0-3) UNRELEASED; urgency=medium
+
+  * debian/control: Update Vcs-* and Standards-Version.
+  * debian/control: remove references to ancient package ja-trans.
+  * debian/gbp.conf: Update repo layout.
+
+ -- Martín Ferrari <tincho@debian.org>  Tue, 31 Jul 2018 19:06:44 +0000
+
 net-tools (1.60+git20161116.90da8a0-2) unstable; urgency=medium
 
   * Fix typo in French manpage. Thanks to  Michel Grigaut for the patch.
