@@ -1,6 +1,7 @@
 net-tools (1.60+git20161116.90da8a0-4) UNRELEASED; urgency=medium
 
   * Update maintainer email address. Closes: #899617.
+  * Update Standards-Version with no changes.
 
  -- Martín Ferrari <tincho@debian.org>  Mon, 24 Sep 2018 15:28:32 +0000
 
