@@ -1,5 +1,5 @@
 Source: net-tools
-Maintainer: net-tools Team <pkg-net-tools-maintainers@lists.alioth.debian.org>
+Maintainer: net-tools Team <team+net-tools@tracker.debian.org>
 Uploaders: Martín Ferrari <tincho@debian.org>,
 Section: net
 Priority: important
