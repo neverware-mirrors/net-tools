@@ -1,9 +1,10 @@
-net-tools (1.60+git20161116.90da8a0-5) UNRELEASED; urgency=medium
+net-tools (1.60+git20180626.aebd88e-1) UNRELEASED; urgency=medium
 
+  * New upstream snapshot
   * Fix typos in German manpages. Thanks to Prof. Dr. Steffen Wendzel and
     Dr. Tobias Quathamer for the patch. Closes: #900962.
 
- -- Martín Ferrari <tincho@debian.org>  Mon, 24 Sep 2018 18:51:22 +0000
+ -- Martín Ferrari <tincho@debian.org>  Mon, 24 Sep 2018 19:00:23 +0000
 
 net-tools (1.60+git20161116.90da8a0-4) unstable; urgency=medium
 
