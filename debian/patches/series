@@ -5,3 +5,4 @@ translations.patch
 Add_missing_headers.patch
 Bug_443075-ifconfig.c-pointtopoint_spelling.patch
 Bug_500913-man-en_US-route.8-EXAMPLES-Add-single-route-del.patch
+Bug_900962-man-de-typos.patch
