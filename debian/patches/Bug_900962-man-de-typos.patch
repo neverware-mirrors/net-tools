@@ -1,8 +1,6 @@
-diff --git a/man/de_DE/netstat.8 b/man/de_DE/netstat.8
-index fdb76c9..4f69843 100644
 --- a/man/de_DE/netstat.8
 +++ b/man/de_DE/netstat.8
-@@ -210,7 +210,7 @@ Die lokale Adresse (lokaler Rechnername) und Portnummer des Sockets.  Au\(sser
+@@ -210,7 +210,7 @@
  bei Verwendung der
  .B -n
  Option wird die Socketadresse nach dem kanonischen Rechnernamen und die
@@ -11,7 +9,7 @@ index fdb76c9..4f69843 100644
  
  .SS "Gegenadresse"
  Die Adresse und Portnummer der Gegenseite des Sockets.  Wie bei lokalen
-@@ -237,12 +237,12 @@ Eine Verbindungsanfrage wurde von der Gegenseite empfangen.
+@@ -237,12 +237,12 @@
  .TP
  .I
  FIN_WAIT1
@@ -27,7 +25,7 @@ index fdb76c9..4f69843 100644
  .TP
  .I
  TIME_WAIT
-@@ -260,7 +260,7 @@ wird erwartet.
+@@ -260,7 +260,7 @@
  .TP
  .I
  LAST_ACK
@@ -36,7 +34,7 @@ index fdb76c9..4f69843 100644
  die Best\(:atigung wird abgewartet.
  .TP
  .I
-@@ -274,7 +274,7 @@ Option gegeben wird.
+@@ -274,7 +274,7 @@
  .TP
  .I
  CLOSING
@@ -45,7 +43,7 @@ index fdb76c9..4f69843 100644
  geschickt.
  .TP
  .I
-@@ -294,7 +294,7 @@ Privilegien ben\(:otigt um die n\(:otigen Daten zu erhalten.  F\(:ur IPX
+@@ -294,7 +294,7 @@
  Sockets sind diese Daten nicht verf\(:ugbar.
  
  .SS "Timer"
@@ -54,7 +52,7 @@ index fdb76c9..4f69843 100644
  
  .PP
  .SS Aktive Sockets in der UNIX Dom\(:ane
-@@ -334,7 +334,7 @@ Der Socket wird als RAW-Socket verwendet.
+@@ -334,7 +334,7 @@
  .TP
  .I
  SOCK_RDM
@@ -63,7 +61,7 @@ index fdb76c9..4f69843 100644
  .TP
  .I
  SOCK_SEQPACKET
-@@ -347,7 +347,7 @@ Socket mit direktem (RAW) Zugriff auf die Schnittstelle.
+@@ -347,7 +347,7 @@
  .TP
  .I
  UNKNOWN

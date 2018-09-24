@@ -1,6 +1,7 @@
 net-tools (1.60+git20180626.aebd88e-1) UNRELEASED; urgency=medium
 
   * New upstream snapshot
+  * Refresh patches.
   * Fix typos in German manpages. Thanks to Prof. Dr. Steffen Wendzel and
     Dr. Tobias Quathamer for the patch. Closes: #900962.
 
