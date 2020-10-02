@@ -1,6 +1,7 @@
 Source: net-tools
 Maintainer: net-tools Team <team+net-tools@tracker.debian.org>
-Uploaders: Martín Ferrari <tincho@debian.org>,
+Uploaders: Martina Ferrari <tina@debian.org>,
+           Utkarsh Gupta <utkarsh@debian.org>
 Section: net
 Priority: important
 Build-Depends: debhelper-compat (= 12),
