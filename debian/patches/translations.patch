@@ -13577,7 +13577,7 @@ Description: Random changed found in diff.gz, synchronized the best I could
 +#: ../lib/interface.c:899
 +#, c-format
 +msgid "          collisions:%lu "
-+msgstr "      衝突(Collisions):%lu "
++msgstr "          衝突:%lu "
 +
 +#: ../lib/interface.c:901
 +#, c-format
